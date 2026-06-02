@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://monitoring.example.com/schemas/metrics-batch.schema.json",
+  "title": "MetricsBatchPayload",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["batchId", "collectedAt", "metrics"],
+  "properties": {
+    "batchId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "collectedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "value"],
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$",
+            "examples": ["disk.free_percent", "agents.overdue_count"]
+          },
+          "value": {
+            "oneOf": [
+              { "type": "number" },
+              { "type": "integer" },
+              { "type": "string" },
+              { "type": "boolean" },
+              { "type": "null" }
+            ]
+          },
+          "unit": {
+            "type": "string",
+            "examples": ["percent", "bytes", "count", "seconds"]
+          },
+          "severityHint": {
+            "type": "string",
+            "enum": ["ok", "info", "warning", "critical", "unknown"]
+          },
+          "tags": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "maxProperties": 20
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://monitoring.example.com/schemas/heartbeat.schema.json",
+  "title": "HeartbeatPayload",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["eventId", "collectedAt", "module", "environment"],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "collectedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "module": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "mode", "collectorInterval"],
+      "properties": {
+        "version": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["saas", "self_hosted", "module_only"]
+        },
+        "collectorInterval": {
+          "type": "integer",
+          "minimum": 60
+        },
+        "configVersion": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bitrixVersion", "phpVersion"],
+      "properties": {
+        "bitrixVersion": {
+          "type": "string"
+        },
+        "phpVersion": {
+          "type": "string"
+        },
+        "encoding": {
+          "type": "string"
+        },
+        "timezone": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

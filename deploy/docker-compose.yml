@@ -1,0 +1,146 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: monitoring
+      POSTGRES_USER: monitoring
+      POSTGRES_PASSWORD: monitoring
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U monitoring -d monitoring"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ../backend
+    environment:
+      APP_ENV: dev
+      APP_SECRET: dev-secret-change-me
+      DATABASE_URL: postgresql://monitoring:monitoring@postgres:5432/monitoring?serverVersion=16&charset=utf8
+      MESSENGER_TRANSPORT_DSN: redis://redis:6379/messages
+      MODULE_SIGNATURE_WINDOW_SECONDS: 300
+      CORS_ALLOW_ORIGIN: '^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$'
+      DEMO_USER_EMAIL: demo@monitoring.local
+      DEMO_USER_PASSWORD: Demo123456
+      DEMO_USER_NAME: Demo User
+      DEMO_ORGANIZATION_NAME: Demo Organization
+      PLATFORM_ADMIN_EMAIL: admin@monitoring.local
+      PLATFORM_ADMIN_PASSWORD: Admin123456
+      PLATFORM_ADMIN_NAME: Platform Admin
+      HEARTBEAT_WARNING_SECONDS: 60
+      HEARTBEAT_CRITICAL_SECONDS: 120
+      MAILER_DSN: smtp://mailhog:1025
+      INTERNAL_API_TOKEN: dev-internal-token
+      FRONTEND_URL: http://localhost:13000
+      TELEGRAM_BOT_TOKEN: ""
+    ports:
+      - "18080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../backend:/app
+    command: sh -c "composer install --no-interaction --ignore-platform-req=ext-redis && php bin/console doctrine:migrations:migrate --no-interaction && php bin/console app:seed-demo && php bin/console app:seed-platform-admin && php bin/console app:provision-checks && php -S 0.0.0.0:8080 -t public public/index.php"
+
+  worker:
+    build:
+      context: ../backend
+    environment:
+      APP_ENV: dev
+      APP_SECRET: dev-secret-change-me
+      DATABASE_URL: postgresql://monitoring:monitoring@postgres:5432/monitoring?serverVersion=16&charset=utf8
+      MESSENGER_TRANSPORT_DSN: redis://redis:6379/messages
+      MODULE_SIGNATURE_WINDOW_SECONDS: 300
+      HEARTBEAT_WARNING_SECONDS: 60
+      HEARTBEAT_CRITICAL_SECONDS: 120
+      MAILER_DSN: smtp://mailhog:1025
+      INTERNAL_API_TOKEN: dev-internal-token
+      FRONTEND_URL: http://localhost:13000
+      TELEGRAM_BOT_TOKEN: ""
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../backend:/app
+    command: sh -c "composer install --no-interaction --ignore-platform-req=ext-redis && php bin/console messenger:consume async -vv"
+
+  scheduler:
+    build:
+      context: ../backend
+    environment:
+      APP_ENV: dev
+      APP_SECRET: dev-secret-change-me
+      DATABASE_URL: postgresql://monitoring:monitoring@postgres:5432/monitoring?serverVersion=16&charset=utf8
+      MESSENGER_TRANSPORT_DSN: redis://redis:6379/messages
+      MODULE_SIGNATURE_WINDOW_SECONDS: 300
+      HEARTBEAT_WARNING_SECONDS: 60
+      HEARTBEAT_CRITICAL_SECONDS: 120
+      MAILER_DSN: smtp://mailhog:1025
+      INTERNAL_API_TOKEN: dev-internal-token
+      PROBE_ID: scheduler
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../backend:/app
+    command: sh -c "composer install --no-interaction --ignore-platform-req=ext-redis && while true; do php bin/console app:provision-checks; php bin/console app:run-probes --probe-id=scheduler; php bin/console app:evaluate-alerts; sleep 60; done"
+
+  frontend:
+    image: node:22-bookworm-slim
+    working_dir: /app
+    volumes:
+      - ../frontend:/app
+    ports:
+      - "13000:3000"
+    environment:
+      VITE_API_URL: http://localhost:18080
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 3000"
+    depends_on:
+      - api
+
+  probe:
+    build:
+      context: ../probe
+    environment:
+      PROBE_ID: local-1
+      INGEST_API_URL: http://api:8080
+      INTERNAL_API_TOKEN: dev-internal-token
+    ports:
+      - "18082:8082"
+    depends_on:
+      - api
+
+  probe-2:
+    build:
+      context: ../probe
+    environment:
+      PROBE_ID: local-2
+      INGEST_API_URL: http://api:8080
+      INTERNAL_API_TOKEN: dev-internal-token
+    depends_on:
+      - api
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "18025:8025"
+
+volumes:
+  postgres_data:

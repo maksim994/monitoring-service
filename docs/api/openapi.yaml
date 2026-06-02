@@ -1,0 +1,499 @@
+openapi: 3.1.0
+info:
+  title: Monitoring Service API
+  version: 0.1.0
+  description: MVP API contract for Bitrix monitoring SaaS, ingest endpoints and cabinet API.
+servers:
+  - url: https://api.monitoring.example.com
+    description: SaaS production placeholder
+  - url: http://localhost:8080
+    description: Local development
+tags:
+  - name: Ingest
+  - name: Module
+  - name: Sites
+  - name: Incidents
+  - name: Notifications
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/sites/handshake:
+    post:
+      tags: [Ingest]
+      summary: Verify module credentials and register initial environment state
+      security:
+        - moduleHmac: []
+      parameters:
+        - $ref: '#/components/parameters/XSiteId'
+        - $ref: '#/components/parameters/XTimestamp'
+        - $ref: '#/components/parameters/XSignature'
+        - $ref: '#/components/parameters/XModuleVersion'
+        - $ref: '#/components/parameters/XRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HandshakeRequest'
+      responses:
+        '200':
+          description: Module credentials accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandshakeResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Site key revoked or site disabled
+  /api/v1/heartbeat:
+    post:
+      tags: [Ingest]
+      summary: Accept module heartbeat
+      security:
+        - moduleHmac: []
+      parameters:
+        - $ref: '#/components/parameters/XSiteId'
+        - $ref: '#/components/parameters/XTimestamp'
+        - $ref: '#/components/parameters/XSignature'
+        - $ref: '#/components/parameters/XModuleVersion'
+        - $ref: '#/components/parameters/XRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: './payload-schemas/heartbeat.schema.json'
+      responses:
+        '202':
+          description: Heartbeat accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/metrics/batch:
+    post:
+      tags: [Ingest]
+      summary: Accept metrics batch from Bitrix module
+      security:
+        - moduleHmac: []
+      parameters:
+        - $ref: '#/components/parameters/XSiteId'
+        - $ref: '#/components/parameters/XTimestamp'
+        - $ref: '#/components/parameters/XSignature'
+        - $ref: '#/components/parameters/XModuleVersion'
+        - $ref: '#/components/parameters/XRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: './payload-schemas/metrics-batch.schema.json'
+      responses:
+        '202':
+          description: Metrics batch accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptedResponse'
+        '413':
+          description: Payload exceeds allowed size
+  /api/v1/events/batch:
+    post:
+      tags: [Ingest]
+      summary: Accept events batch from Bitrix module
+      security:
+        - moduleHmac: []
+      parameters:
+        - $ref: '#/components/parameters/XSiteId'
+        - $ref: '#/components/parameters/XTimestamp'
+        - $ref: '#/components/parameters/XSignature'
+        - $ref: '#/components/parameters/XModuleVersion'
+        - $ref: '#/components/parameters/XRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: './payload-schemas/events-batch.schema.json'
+      responses:
+        '202':
+          description: Events batch accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptedResponse'
+  /api/v1/module/config:
+    get:
+      tags: [Module]
+      summary: Return remote config for Bitrix module
+      security:
+        - moduleHmac: []
+      parameters:
+        - $ref: '#/components/parameters/XSiteId'
+        - $ref: '#/components/parameters/XTimestamp'
+        - $ref: '#/components/parameters/XSignature'
+        - $ref: '#/components/parameters/XModuleVersion'
+        - $ref: '#/components/parameters/XRequestId'
+      responses:
+        '200':
+          description: Remote module config
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModuleConfig'
+  /api/v1/sites:
+    get:
+      tags: [Sites]
+      summary: List sites in current organization
+      responses:
+        '200':
+          description: Site list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SiteSummary'
+    post:
+      tags: [Sites]
+      summary: Create site and connection secret
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSiteRequest'
+      responses:
+        '201':
+          description: Site created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateSiteResponse'
+  /api/v1/sites/{siteId}:
+    get:
+      tags: [Sites]
+      summary: Get site details
+      parameters:
+        - $ref: '#/components/parameters/SiteIdPath'
+      responses:
+        '200':
+          description: Site details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteDetails'
+  /api/v1/incidents:
+    get:
+      tags: [Incidents]
+      summary: List incidents
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, acknowledged, resolved, muted]
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [info, warning, critical]
+        - name: siteId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Incident list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/IncidentSummary'
+  /api/v1/incidents/{incidentId}/acknowledge:
+    post:
+      tags: [Incidents]
+      summary: Acknowledge incident
+      parameters:
+        - $ref: '#/components/parameters/IncidentIdPath'
+      responses:
+        '200':
+          description: Incident acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidentSummary'
+  /api/v1/notification-channels:
+    get:
+      tags: [Notifications]
+      summary: List notification channels
+      responses:
+        '200':
+          description: Channel list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NotificationChannel'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    moduleHmac:
+      type: apiKey
+      in: header
+      name: X-Signature
+  parameters:
+    XSiteId:
+      name: X-Site-Id
+      in: header
+      required: true
+      schema:
+        type: string
+    XTimestamp:
+      name: X-Timestamp
+      in: header
+      required: true
+      schema:
+        type: string
+        format: date-time
+    XSignature:
+      name: X-Signature
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: '^[a-f0-9]{64}$'
+    XModuleVersion:
+      name: X-Module-Version
+      in: header
+      required: true
+      schema:
+        type: string
+    XRequestId:
+      name: X-Request-Id
+      in: header
+      required: true
+      schema:
+        type: string
+    SiteIdPath:
+      name: siteId
+      in: path
+      required: true
+      schema:
+        type: string
+    IncidentIdPath:
+      name: incidentId
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Invalid credentials or signature
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    AcceptedResponse:
+      type: object
+      required: [status, requestId]
+      properties:
+        status:
+          type: string
+          const: accepted
+        requestId:
+          type: string
+    ErrorResponse:
+      type: object
+      required: [error, requestId]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+        requestId:
+          type: string
+    HandshakeRequest:
+      type: object
+      required: [domain, siteUrl, bitrixVersion, phpVersion, encoding, mode]
+      properties:
+        domain:
+          type: string
+          example: example.ru
+        siteUrl:
+          type: string
+          format: uri
+        bitrixVersion:
+          type: string
+        phpVersion:
+          type: string
+        encoding:
+          type: string
+          enum: [UTF-8, windows-1251, CP1251]
+        mode:
+          type: string
+          enum: [saas, self_hosted, module_only]
+    HandshakeResponse:
+      type: object
+      required: [status, siteId, serverTime, configVersion]
+      properties:
+        status:
+          type: string
+          const: ok
+        siteId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
+        configVersion:
+          type: integer
+    ModuleConfig:
+      type: object
+      required: [configVersion, collectorInterval, enabledCollectors, limits]
+      properties:
+        configVersion:
+          type: integer
+        collectorInterval:
+          type: integer
+          minimum: 60
+        enabledCollectors:
+          type: array
+          items:
+            type: string
+            enum: [environment, disk, backup, modules, agents, database, cache, mail, logs]
+        limits:
+          type: object
+          required: [maxDirectoryScanDepth, maxPayloadBytes, collectorTimeoutSeconds]
+          properties:
+            maxDirectoryScanDepth:
+              type: integer
+            maxPayloadBytes:
+              type: integer
+            collectorTimeoutSeconds:
+              type: integer
+    CreateSiteRequest:
+      type: object
+      required: [domain, siteUrl]
+      properties:
+        domain:
+          type: string
+        siteUrl:
+          type: string
+          format: uri
+        projectId:
+          type: string
+          nullable: true
+    CreateSiteResponse:
+      type: object
+      required: [siteId, apiSecret, site]
+      properties:
+        siteId:
+          type: string
+        apiSecret:
+          type: string
+          description: Full secret is returned only once.
+        site:
+          $ref: '#/components/schemas/SiteDetails'
+    SiteSummary:
+      type: object
+      required: [id, domain, status, lastHeartbeatAt]
+      properties:
+        id:
+          type: string
+        domain:
+          type: string
+        status:
+          type: string
+          enum: [pending, ok, warning, critical, disabled]
+        lastHeartbeatAt:
+          type: string
+          format: date-time
+          nullable: true
+        openIncidents:
+          type: integer
+    SiteDetails:
+      allOf:
+        - $ref: '#/components/schemas/SiteSummary'
+        - type: object
+          properties:
+            siteUrl:
+              type: string
+              format: uri
+            moduleVersion:
+              type: string
+              nullable: true
+            bitrixVersion:
+              type: string
+              nullable: true
+            phpVersion:
+              type: string
+              nullable: true
+            configVersion:
+              type: integer
+    IncidentSummary:
+      type: object
+      required: [id, siteId, checkType, severity, status, title, openedAt]
+      properties:
+        id:
+          type: string
+        siteId:
+          type: string
+        checkType:
+          type: string
+        severity:
+          type: string
+          enum: [info, warning, critical]
+        status:
+          type: string
+          enum: [open, acknowledged, resolved, muted]
+        title:
+          type: string
+        openedAt:
+          type: string
+          format: date-time
+    NotificationChannel:
+      type: object
+      required: [id, type, name, enabled]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [telegram, email, webhook]
+        name:
+          type: string
+        enabled:
+          type: boolean

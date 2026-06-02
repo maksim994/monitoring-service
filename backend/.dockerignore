@@ -1,0 +1,8 @@
+var/
+vendor/
+.env
+.env.*
+!.env.test
+tests/
+phpunit.xml.dist
+.git
