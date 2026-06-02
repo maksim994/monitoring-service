@@ -11,7 +11,7 @@ import { getStatusMeta } from '../lib/status';
 import { canManageSites } from '../lib/roles';
 
 export function SitesPage() {
-  const { token, organization } = useAuth();
+  const { token, user, organization } = useAuth();
   const [sites, setSites] = useState<SiteSummary[]>([]);
   const [domain, setDomain] = useState('');
   const [siteUrl, setSiteUrl] = useState('');
@@ -60,6 +60,7 @@ export function SitesPage() {
   }
 
   const canCreate = canManageSites(organization?.role);
+  const isPlatformAdminWithoutOrg = Boolean(user?.isPlatformAdmin && !organization);
 
   return (
     <div className="space-y-6">
@@ -130,8 +131,32 @@ export function SitesPage() {
         {loading && <p className="text-sm text-slate-500">Загрузка...</p>}
         {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
         {!loading && sites.length === 0 && (
-          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center text-sm text-slate-500">
-            Сайтов пока нет. Нажмите «Добавить сайт», чтобы получить ключи подключения.
+          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center">
+            {canCreate ? (
+              <>
+                <p className="text-sm text-slate-500">Сайтов пока нет. Добавьте первый Bitrix-проект и получите ключи для модуля.</p>
+                <Button type="button" className="mt-4" onClick={() => setShowForm(true)}>
+                  <Plus className="h-4 w-4" />
+                  Добавить сайт
+                </Button>
+              </>
+            ) : isPlatformAdminWithoutOrg ? (
+              <>
+                <p className="text-sm text-slate-500">
+                  Аккаунт Platform Admin не привязан к организации-клиенту. Для добавления сайтов зарегистрируйте клиентский аккаунт
+                  или войдите под ним.
+                </p>
+                <div className="mt-4 flex flex-wrap justify-center gap-3">
+                  <Link to="/admin">
+                    <Button variant="secondary">Админка платформы</Button>
+                  </Link>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-slate-500">
+                Сайтов пока нет. Добавление доступно ролям Owner, Admin и Integrator — обратитесь к администратору организации.
+              </p>
+            )}
           </div>
         )}
 

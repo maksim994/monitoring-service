@@ -64,11 +64,7 @@ final class AuthController extends AbstractController
         return $this->json([
             'token' => $user->getApiToken(),
             'user' => $this->serializeUser($user),
-            'organization' => [
-                'id' => (string) $organization->getId(),
-                'name' => $organization->getName(),
-                'planCode' => $organization->getPlanCode(),
-            ],
+            'organization' => $this->serializeOrganization($organizationUser),
         ], Response::HTTP_CREATED);
     }
 
@@ -98,11 +94,7 @@ final class AuthController extends AbstractController
         return $this->json([
             'token' => $user->getApiToken(),
             'user' => $this->serializeUser($user),
-            'organization' => $organizationUser ? [
-                'id' => (string) $organizationUser->getOrganization()->getId(),
-                'name' => $organizationUser->getOrganization()->getName(),
-                'planCode' => $organizationUser->getOrganization()->getPlanCode(),
-            ] : null,
+            'organization' => $this->serializeOrganization($organizationUser),
         ]);
     }
 
@@ -118,13 +110,24 @@ final class AuthController extends AbstractController
 
         return $this->json([
             'user' => $this->serializeUser($user),
-            'organization' => $organizationUser ? [
-                'id' => (string) $organizationUser->getOrganization()->getId(),
-                'name' => $organizationUser->getOrganization()->getName(),
-                'planCode' => $organizationUser->getOrganization()->getPlanCode(),
-                'role' => $organizationUser->getRole(),
-            ] : null,
+            'organization' => $this->serializeOrganization($organizationUser),
         ]);
+    }
+
+    private function serializeOrganization(?OrganizationUser $organizationUser): ?array
+    {
+        if ($organizationUser === null) {
+            return null;
+        }
+
+        $organization = $organizationUser->getOrganization();
+
+        return [
+            'id' => (string) $organization->getId(),
+            'name' => $organization->getName(),
+            'planCode' => $organization->getPlanCode(),
+            'role' => $organizationUser->getRole(),
+        ];
     }
 
     private function serializeUser(User $user): array

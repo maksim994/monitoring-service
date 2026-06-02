@@ -28,14 +28,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (user) {
-      setInitializing(false);
-      return;
-    }
-
     setInitializing(true);
     api.me(token)
-      .then((response: { user: AuthResponse['user']; organization: AuthResponse['organization'] & { role?: string } }) => {
+      .then((response) => {
         setUser(response.user);
         setOrganization(response.organization);
       })
@@ -48,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => {
         setInitializing(false);
       });
-  }, [token, user]);
+  }, [token]);
 
   const value = useMemo<AuthState>(() => ({
     token,
