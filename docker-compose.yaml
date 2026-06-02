@@ -1,2 +1,129 @@
-include:
-  - deploy/docker-compose.prod.yml
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-monitoring}
+      POSTGRES_USER: ${POSTGRES_USER:-monitoring}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-monitoring} -d ${POSTGRES_DB:-monitoring}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  api: &backend
+    build:
+      context: ./backend
+    environment: &backend_env
+      APP_ENV: prod
+      APP_SECRET: ${APP_SECRET:?set APP_SECRET}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-monitoring}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-monitoring}?serverVersion=16&charset=utf8
+      MESSENGER_TRANSPORT_DSN: redis://redis:6379/messages
+      MODULE_SIGNATURE_WINDOW_SECONDS: ${MODULE_SIGNATURE_WINDOW_SECONDS:-300}
+      CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN:-'^https?://.*$'}
+      HEARTBEAT_WARNING_SECONDS: ${HEARTBEAT_WARNING_SECONDS:-900}
+      HEARTBEAT_CRITICAL_SECONDS: ${HEARTBEAT_CRITICAL_SECONDS:-1800}
+      MAILER_DSN: ${MAILER_DSN:-null://null}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN}
+      FRONTEND_URL: ${FRONTEND_URL:?set FRONTEND_URL}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      DEFAULT_URI: ${FRONTEND_URL}
+      SYMFONY_TRUSTED_PROXIES: ${SYMFONY_TRUSTED_PROXIES:-0.0.0.0/0}
+      SYMFONY_TRUSTED_HEADERS: ${SYMFONY_TRUSTED_HEADERS:-x-forwarded-for,x-forwarded-proto,x-forwarded-host,x-forwarded-port}
+      PLATFORM_ADMIN_EMAIL: ${PLATFORM_ADMIN_EMAIL:-admin@monitoring.local}
+      PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:-}
+      PLATFORM_ADMIN_NAME: ${PLATFORM_ADMIN_NAME:-Platform Admin}
+      DEMO_USER_EMAIL: ${DEMO_USER_EMAIL:-}
+      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:-}
+      DEMO_USER_NAME: ${DEMO_USER_NAME:-}
+      DEMO_ORGANIZATION_NAME: ${DEMO_ORGANIZATION_NAME:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "
+      php bin/console doctrine:migrations:migrate --no-interaction --env=prod &&
+      php bin/console cache:warmup --env=prod &&
+      php -S 0.0.0.0:8080 -t public public/index.php
+      "
+    restart: unless-stopped
+
+  worker:
+    <<: *backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+    environment:
+      <<: *backend_env
+    command: php bin/console messenger:consume async -vv --env=prod --time-limit=3600
+    restart: unless-stopped
+
+  scheduler:
+    <<: *backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+    environment:
+      <<: *backend_env
+      PROBE_ID: scheduler
+    command: >
+      sh -c "
+      while true; do
+        php bin/console app:provision-checks --env=prod;
+        php bin/console app:run-probes --probe-id=scheduler --env=prod;
+        php bin/console app:evaluate-alerts --env=prod;
+        sleep 60;
+      done
+      "
+    restart: unless-stopped
+
+  probe:
+    build:
+      context: ./probe
+    environment:
+      PROBE_ID: ${PROBE_ID:-prod-1}
+      INGEST_API_URL: http://api:8080
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN}
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.web
+      args:
+        VITE_API_URL: ""
+    depends_on:
+      api:
+        condition: service_started
+    expose:
+      - "80"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    name: monitoring_postgres_data

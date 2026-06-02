@@ -1,3 +1,9 @@
+# Production stack for Coolify and manual deploy from repo root:
+#   docker compose -f docker-compose.yaml up -d --build
+#
+# This file mirrors root docker-compose.yaml with paths relative to deploy/.
+# Prefer docker-compose.yaml in the repository root for Coolify.
+
 services:
   postgres:
     image: postgres:16-alpine

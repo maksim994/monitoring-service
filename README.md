@@ -48,7 +48,7 @@ make up
 
 Инструкция по деплою на VPS: [`docs/deployment/coolify.md`](docs/deployment/coolify.md).
 
-Стек: `docker-compose.yaml` (корень) → `deploy/docker-compose.prod.yml`, один домен для кабинета и API (`/api/*`).
+Стек: `docker-compose.yaml` в корне репозитория, один домен для кабинета и API (`/api/*`).
 
 Структура кода:
 

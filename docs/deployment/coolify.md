@@ -76,8 +76,8 @@ git push -u origin main
 | Base Directory | `/` (корень репозитория) |
 | Docker Compose Location | `/docker-compose.yaml` |
 
-> **Важно:** Coolify часто не принимает пути вида `/deploy/docker-compose.prod.yml` — ошибка *«docker compose location field format is invalid»*.  
-> В корне репозитория лежит `docker-compose.yaml`, который подключает production-стек из `deploy/docker-compose.prod.yml`. Оставьте значение по умолчанию `/docker-compose.yaml`.
+> **Важно:** Coolify не поддерживает compose-файлы только с `include:` — сервисы должны быть описаны прямо в `docker-compose.yaml` в корне репозитория.  
+> Не используйте `/deploy/docker-compose.prod.yml` — будет ошибка *format is invalid* или *no service selected*.
 
 Альтернатива (если нужен файл из `deploy/`):
 
@@ -241,11 +241,16 @@ docker exec -t $(docker ps -qf name=postgres) pg_dump -U monitoring monitoring >
 
 ## Troubleshooting
 
+### «no service selected»
+
+Coolify не разворачивает compose-файлы, где сервисы подключены только через `include:`.  
+**Решение:** используйте `/docker-compose.yaml` из корня репозитория (полный стек, без `include`).
+
 ### «Docker compose location field format is invalid»
 
 Coolify не принимает некоторые пути с подпапками при Base Directory `/`.
 
-**Решение:** оставьте Base Directory `/` и Docker Compose Location `/docker-compose.yaml` (файл в корне репозитория).
+**Решение:** оставьте Base Directory `/` и Docker Compose Location `/docker-compose.yaml`.
 
 ### 502 Bad Gateway на домене
 
