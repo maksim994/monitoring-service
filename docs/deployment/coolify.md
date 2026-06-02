@@ -182,7 +182,49 @@ curl -fsS -o /dev/null -w "%{http_code}\n" https://monitoring.example.com/api/v1
 1. Push в ветку `main`.
 2. Coolify → **Redeploy** (или включите auto-deploy on push).
 
-При обновлении миграции применяются автоматически при старте контейнера `api`.
+При обновлении миграции применяются автоматически при старте контейнера `api`. Миграции **добавляют** схему, но **не удаляют** пользователей, сайты и организации.
+
+## Сохранение данных при redeploy
+
+### Что уже настроено в проекте
+
+PostgreSQL использует **named volume** `postgres_data` с фиксированным именем `monitoring_postgres_data`. При обычном **Redeploy** контейнеры пересобираются, а данные БД остаются на диске сервера.
+
+Redis **без volume** — очередь сообщений может обнулиться при перезапуске Redis. Это не стирает организации/сайты в PostgreSQL, но необработанные задачи в очереди могут потеряться.
+
+### Что сделать в Coolify
+
+1. **Redeploy**, а не удаление ресурса  
+   Кнопка **Redeploy** / auto-deploy on push — безопасно.  
+   **Delete resource** или `docker compose down -v` — **сотрёт volume** и все данные.
+
+2. **Не меняйте секреты «просто так» после первого деплоя**
+
+   | Переменная | Если изменить |
+   | --- | --- |
+   | `POSTGRES_PASSWORD` | PostgreSQL не поднимется со старым volume (пароль уже записан в data dir) |
+   | `APP_SECRET` | Сломается расшифровка секретов сайтов (API keys) |
+   | `INTERNAL_API_TOKEN` | Probe перестанет слать данные, пока не обновите токен везде |
+
+3. **Проверьте Persistent Storage** (опционально)  
+   Coolify → сервис **postgres** → **Persistent Storage** — должен быть mount на `/var/lib/postgresql/data`.  
+   Если Coolify показывает лишние anonymous volumes после каждого деплоя — обновите compose из репозитория (volume с `name: monitoring_postgres_data`).
+
+4. **Бэкапы** — даже при правильных volume делайте `pg_dump` по расписанию (см. ниже).
+
+### Что безопасно при каждом деплое
+
+- Обновление кода (git push → redeploy)
+- Пересборка образов `api`, `web`, `worker`, `probe`
+- `doctrine:migrations:migrate` при старте `api`
+- Изменение `FRONTEND_URL`, SMTP, Telegram — **не** стирает БД
+
+### Что может «обнулить» кабинет
+
+- Удаление приложения/стека в Coolify **с volumes**
+- Смена `POSTGRES_PASSWORD` без переинициализации БД
+- Пересоздание ресурса с другим UUID (новый anonymous volume)
+- Ручной `docker volume rm monitoring_postgres_data`
 
 ## Бэкапы
 

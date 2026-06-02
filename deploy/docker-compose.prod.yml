@@ -126,3 +126,4 @@ services:
 
 volumes:
   postgres_data:
+    name: monitoring_postgres_data
