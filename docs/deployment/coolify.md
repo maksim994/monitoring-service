@@ -74,7 +74,17 @@ git push -u origin main
 | Repository | `maksim994/monitoring-service` |
 | Branch | `main` |
 | Base Directory | `/` (корень репозитория) |
-| Docker Compose file | `deploy/docker-compose.prod.yml` |
+| Docker Compose Location | `/docker-compose.yaml` |
+
+> **Важно:** Coolify часто не принимает пути вида `/deploy/docker-compose.prod.yml` — ошибка *«docker compose location field format is invalid»*.  
+> В корне репозитория лежит `docker-compose.yaml`, который подключает production-стек из `deploy/docker-compose.prod.yml`. Оставьте значение по умолчанию `/docker-compose.yaml`.
+
+Альтернатива (если нужен файл из `deploy/`):
+
+| Поле | Значение |
+| --- | --- |
+| Base Directory | `/deploy` |
+| Docker Compose Location | `/docker-compose.prod.yml` |
 
 5. Сохраните ресурс.
 
@@ -188,6 +198,12 @@ docker exec -t $(docker ps -qf name=postgres) pg_dump -U monitoring monitoring >
 ```
 
 ## Troubleshooting
+
+### «Docker compose location field format is invalid»
+
+Coolify не принимает некоторые пути с подпапками при Base Directory `/`.
+
+**Решение:** оставьте Base Directory `/` и Docker Compose Location `/docker-compose.yaml` (файл в корне репозитория).
 
 ### 502 Bad Gateway на домене
 
