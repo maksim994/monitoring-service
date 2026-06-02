@@ -172,7 +172,7 @@ curl -fsS -o /dev/null -w "%{http_code}\n" https://monitoring.example.com/api/v1
 
 | Параметр | Значение |
 | --- | --- |
-| API URL | `https://monitoring.example.com/api` |
+| API URL | `https://monitoring.example.com` |
 | Site ID / API Secret | Из кабинета после добавления сайта |
 
 Модуль отправляет heartbeat и метрики на ingest API того же домена.

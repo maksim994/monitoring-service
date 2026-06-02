@@ -85,26 +85,50 @@ class vendor_monitoring extends CModule
 
     public function InstallFiles()
     {
-        CopyDirFiles(
-            __DIR__.'/../admin',
-            $_SERVER['DOCUMENT_ROOT'].'/bitrix/admin',
-            true,
-            true,
-            false,
-            'vendor_monitoring_settings.php',
-        );
+        $adminSourceDir = __DIR__.'/../admin';
+        $adminTargetDir = $_SERVER['DOCUMENT_ROOT'].'/bitrix/admin';
+
+        if (!is_dir($adminSourceDir)) {
+            return true;
+        }
+
+        foreach (scandir($adminSourceDir) ?: [] as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+
+            $sourceFile = $adminSourceDir.'/'.$item;
+            if (!is_file($sourceFile)) {
+                continue;
+            }
+
+            $relativeSource = str_replace('\\', '/', str_replace($_SERVER['DOCUMENT_ROOT'], '', $sourceFile));
+            $stub = '<?php require $_SERVER[\'DOCUMENT_ROOT\'].'."'".$relativeSource."';";
+
+            file_put_contents($adminTargetDir.'/'.$item, $stub);
+        }
 
         return true;
     }
 
     public function UnInstallFiles()
     {
-        DeleteDirFiles(
-            __DIR__.'/../admin',
-            $_SERVER['DOCUMENT_ROOT'].'/bitrix/admin',
-            false,
-            'vendor_monitoring_settings.php',
-        );
+        $adminSourceDir = __DIR__.'/../admin';
+
+        if (!is_dir($adminSourceDir)) {
+            return true;
+        }
+
+        foreach (scandir($adminSourceDir) ?: [] as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+
+            $targetFile = $_SERVER['DOCUMENT_ROOT'].'/bitrix/admin/'.$item;
+            if (is_file($targetFile)) {
+                unlink($targetFile);
+            }
+        }
 
         return true;
     }
