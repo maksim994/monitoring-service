@@ -280,11 +280,15 @@ CORS_ALLOW_ORIGIN='^https://monitoring\.example\.com$'
 
 ### Не создался platform admin
 
-Команда идемпотентна — повторите:
+Команда идемпотентна — выполните в контейнере **`api`**, **`worker`** или **`scheduler`**:
 
 ```bash
 php bin/console app:seed-platform-admin --env=prod
 ```
+
+### «Unable to read /app/.env»
+
+Symfony требует файл `.env` внутри Docker-образа backend. Он должен быть в репозитории. После обновления — **Redeploy** с пересборкой образов.
 
 ## Альтернатива: отдельные домены для API и frontend
 

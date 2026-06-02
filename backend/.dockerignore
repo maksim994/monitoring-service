@@ -1,8 +1,7 @@
 var/
 vendor/
-.env
-.env.*
-!.env.test
+.env.local
+.env.*.local
 tests/
 phpunit.xml.dist
 .git

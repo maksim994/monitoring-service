@@ -5,7 +5,6 @@
 # Backend
 /backend/var/
 /backend/vendor/
-/backend/.env
 /backend/.env.local
 /backend/.env.*.local
 
@@ -13,6 +12,6 @@
 /frontend/node_modules/
 /frontend/dist/
 
-# Env
-.env
-.env.local
+# Env (repository root only)
+/.env
+/.env.local
