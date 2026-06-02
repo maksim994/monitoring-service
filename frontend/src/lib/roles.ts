@@ -6,7 +6,24 @@ const MANAGE_PLAN = new Set(['owner']);
 const VIEW_AUDIT = new Set(['owner', 'admin']);
 
 export function canManageSites(role?: string) {
-  return role ? MANAGE_SITES.has(role) : false;
+  if (!role) {
+    return false;
+  }
+
+  return MANAGE_SITES.has(role);
+}
+
+/** Show create-site UI when role is missing (legacy API) but organization exists. */
+export function canManageSitesInUi(role: string | undefined, hasOrganization: boolean) {
+  if (!hasOrganization) {
+    return false;
+  }
+
+  if (!role) {
+    return true;
+  }
+
+  return canManageSites(role);
 }
 
 export function canManageChannels(role?: string) {

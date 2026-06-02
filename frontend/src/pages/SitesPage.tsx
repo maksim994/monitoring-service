@@ -8,7 +8,7 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { getStatusMeta } from '../lib/status';
-import { canManageSites } from '../lib/roles';
+import { canManageSitesInUi } from '../lib/roles';
 
 export function SitesPage() {
   const { token, user, organization } = useAuth();
@@ -59,7 +59,7 @@ export function SitesPage() {
     await navigator.clipboard.writeText(value);
   }
 
-  const canCreate = canManageSites(organization?.role);
+  const canCreate = canManageSitesInUi(organization?.role, Boolean(organization));
   const isPlatformAdminWithoutOrg = Boolean(user?.isPlatformAdmin && !organization);
 
   return (

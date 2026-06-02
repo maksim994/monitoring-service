@@ -56,7 +56,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(response.token);
       setUser(response.user);
       setOrganization(response.organization);
-      setInitializing(false);
     },
     register: async (payload) => {
       const response = await api.register(payload);
@@ -64,7 +63,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(response.token);
       setUser(response.user);
       setOrganization(response.organization);
-      setInitializing(false);
     },
     logout: () => {
       localStorage.removeItem(TOKEN_KEY);
