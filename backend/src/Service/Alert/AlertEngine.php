@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Service\Alert;
 
+use App\Service\Notification\IncidentNotificationFormatter;
 use App\Entity\Check;
 use App\Entity\CheckResult;
 use App\Entity\Incident;
@@ -197,13 +198,11 @@ final class AlertEngine
             ? Incident::SEVERITY_CRITICAL
             : Incident::SEVERITY_WARNING;
 
-        $title = $overdueCount > 0
-            ? sprintf(
-                'Просрочено %d agent(s), макс. задержка %d мин',
-                $overdueCount,
-                (int) round($maxLagSeconds / 60),
-            )
-            : sprintf('Задержка agents %d мин', (int) round($maxLagSeconds / 60));
+        $title = IncidentNotificationFormatter::formatAgentsIncidentTitle(
+            $overdueCount,
+            $maxLagSeconds,
+            $evidence,
+        );
 
         $this->openOrUpdateIncident(
             $site,
@@ -283,9 +282,7 @@ final class AlertEngine
 
         $failures = $result->getConsecutiveFailures();
         $severity = $failures >= 2 ? Incident::SEVERITY_CRITICAL : Incident::SEVERITY_WARNING;
-        $title = $severity === Incident::SEVERITY_CRITICAL
-            ? 'Сайт недоступен (подтверждённая ошибка uptime)'
-            : 'Сайт недоступен (ошибка uptime)';
+        $title = $this->formatUptimeIncidentTitle($evidence, $severity);
 
         $this->openOrUpdateIncident(
             $site,
@@ -320,7 +317,7 @@ final class AlertEngine
             : 'Проблема SSL-сертификата';
 
         if (isset($evidence['error'])) {
-            $title = 'SSL handshake failed';
+            $title = 'SSL: не удалось проверить сертификат';
         }
 
         $this->openOrUpdateIncident(
@@ -403,6 +400,28 @@ final class AlertEngine
             $title,
             $evidence,
         );
+    }
+
+    /** @param array<string, mixed> $evidence */
+    private function formatUptimeIncidentTitle(array $evidence, string $severity): string
+    {
+        $httpStatus = $evidence['httpStatus'] ?? null;
+        if (is_int($httpStatus) && $httpStatus > 0) {
+            $prefix = $severity === Incident::SEVERITY_CRITICAL
+                ? 'Сайт недоступен (подтверждено)'
+                : 'Сайт недоступен';
+
+            return sprintf('%s: HTTP %d', $prefix, $httpStatus);
+        }
+
+        $error = $evidence['error'] ?? null;
+        if (is_string($error) && $error !== '') {
+            return 'Сайт недоступен: '.$error;
+        }
+
+        return $severity === Incident::SEVERITY_CRITICAL
+            ? 'Сайт недоступен (подтверждённая ошибка uptime)'
+            : 'Сайт недоступен (ошибка uptime)';
     }
 
     /** @param array<string, mixed>|null $metric */

@@ -6,7 +6,6 @@ namespace App\Service\Notification;
 
 use App\Entity\Incident;
 use App\Entity\NotificationChannel;
-use App\Service\Alert\DiskEvidenceHelper;
 use App\Entity\NotificationDelivery;
 use App\Repository\NotificationChannelRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -72,6 +71,7 @@ final class NotificationDispatcher
             'title' => 'Тестовое уведомление Monitoring Service',
             'openedAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
             'evidence' => ['message' => 'Канал настроен корректно'],
+            'frontendUrl' => $this->frontendUrl,
         ];
 
         $this->sendToChannel($channel, $payload, null, true);
@@ -212,68 +212,14 @@ final class NotificationDispatcher
             'openedAt' => $incident->getOpenedAt()->format(DATE_ATOM),
             'evidence' => $incident->getLastEvidenceJson(),
             'isReminder' => $isReminder,
+            'frontendUrl' => $this->frontendUrl,
         ];
     }
 
     /** @param array<string, mixed> $payload */
     private function formatTextBody(array $payload): string
     {
-        $lines = [];
-        if (!empty($payload['isReminder'])) {
-            $lines[] = 'Повторное напоминание: инцидент всё ещё открыт';
-            $lines[] = '';
-        }
-
-        $lines[] = $payload['title'] ?? 'Monitoring notification';
-        $lines[] = '';
-        $lines[] = 'Severity: '.($payload['severity'] ?? 'info');
-        $lines[] = 'Check: '.($payload['checkType'] ?? 'unknown');
-
-        if (isset($payload['siteDomain'])) {
-            $lines[] = 'Site: '.$payload['siteDomain'];
-        }
-
-        if (isset($payload['openedAt'])) {
-            $lines[] = 'Opened: '.$payload['openedAt'];
-        }
-
-        $evidence = $payload['evidence'] ?? null;
-        if (is_array($evidence) && ($payload['checkType'] ?? null) === 'disk_low') {
-            $diskLines = $this->formatDiskEvidenceLines($evidence);
-            if ($diskLines !== []) {
-                $lines[] = '';
-                $lines = [...$lines, ...$diskLines];
-            }
-        }
-
-        $lines[] = '';
-        $lines[] = 'Кабинет: '.$this->frontendUrl.'/incidents';
-
-        return implode("\n", $lines);
-    }
-
-    /** @param array<string, mixed> $evidence */
-    private function formatDiskEvidenceLines(array $evidence): array
-    {
-        $lines = [];
-        $path = $evidence['path'] ?? null;
-        if (is_string($path) && $path !== '') {
-            $lines[] = 'Путь: '.$path;
-        }
-
-        $totalBytes = $evidence['totalBytes'] ?? null;
-        $freeBytes = $evidence['freeBytes'] ?? null;
-        $usedBytes = $evidence['usedBytes'] ?? null;
-        if (is_int($totalBytes) && is_int($freeBytes) && is_int($usedBytes)) {
-            $lines[] = sprintf(
-                'Диск: свободно %s, занято %s, всего %s',
-                DiskEvidenceHelper::formatBytes($freeBytes),
-                DiskEvidenceHelper::formatBytes($usedBytes),
-                DiskEvidenceHelper::formatBytes($totalBytes),
-            );
-        }
-
-        return $lines;
+        return IncidentNotificationFormatter::formatNotificationBody($payload);
     }
 
     /** @param list<string> $headers */
