@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Fixed
+
+- `BackupCollector`: учёт архивов `.enc` / `.enc.gz` (шифрованные копии Bitrix), обход подкаталогов `/bitrix/backup/`, тег `collector=backup_v2`.
+
+### Added
+
+- В настройках модуля: блок «Диагностика резервных копий» и кнопка отправки метрики бэкапа в облако.
+
 ### Added
 
 - `LicenseCollector`: метрика `license.days_left` через API `\Bitrix\Main\License` (продукт и техподдержка).

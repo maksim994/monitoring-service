@@ -10,6 +10,8 @@ export type CheckThresholdField = {
   chipText?: string;
   /** Пояснение под полем ввода */
   hint?: string;
+  /** Короткая подпись в бейдже на карточке проверки */
+  chipShortLabel?: string;
   toApi?: (value: number) => number;
   fromApi?: (value: number) => number;
 };
@@ -20,6 +22,8 @@ export type CheckMeta = {
   whyItMatters: string;
   /** Текст в модальном окне порогов */
   thresholdsModalDescription?: string;
+  /** Подпись кнопки открытия порогов (по умолчанию «Пороги») */
+  thresholdButtonLabel?: string;
   thresholdFields?: CheckThresholdField[];
 };
 
@@ -96,24 +100,28 @@ export const CHECK_META: Record<string, CheckMeta> = {
     description: 'Модуль Bitrix сообщает, сколько свободно места на диске с document root.',
     whyItMatters:
       'При нехватке места падают загрузки, кеш, бэкапы и обновления; сайт может перестать сохранять данные.',
-    thresholdsModalDescription: 'Пороги — доля свободного места на диске сервера (в процентах).',
+    thresholdButtonLabel: 'Минимум места',
+    thresholdsModalDescription:
+      'Укажите минимальную долю свободного места (в %). Пока на диске не меньше этого значения — проверка в норме. Ниже — предупреждение; ещё ниже критического порога — критичный инцидент. Пример: при 8% свободно и минимуме 15% будет «Внимание»; если для вашего сервера достаточно 5%, задайте минимум 5%.',
     thresholdFields: [
       {
         key: 'warningPercent',
-        label: 'Предупреждение',
+        label: 'Минимум свободного места',
         unit: '%',
-        chipText: 'свободно меньше {value}%',
-        hint: 'Инцидент предупреждения, если свободного места на диске осталось меньше этого процента.',
+        chipShortLabel: 'Минимум',
+        chipText: 'норма от {value}%',
+        hint: 'Пока свободно ≥ этого % — без инцидента. По умолчанию 15%. Уменьшите, если на сервере обычно мало запаса (например, 5–8%).',
         min: 1,
         max: 90,
         step: 1,
       },
       {
         key: 'criticalPercent',
-        label: 'Критично',
+        label: 'Критично, если ниже',
         unit: '%',
-        chipText: 'свободно меньше {value}%',
-        hint: 'Критичный инцидент при ещё меньшем остатке места. Значение должно быть ниже порога предупреждения.',
+        chipShortLabel: 'Критично',
+        chipText: 'ниже {value}%',
+        hint: 'Критичный инцидент при ещё меньшем остатке. Должно быть меньше минимума свободного места (по умолчанию 5%).',
         min: 1,
         max: 50,
         step: 1,
@@ -278,10 +286,12 @@ export function getThresholdChips(checkType: string, settings: Record<string, un
 
     const valueText = field.chipText ? chip(field.chipText, display) : `${display} ${field.unit}`;
 
+    const defaultShortLabel = isCritical && !isWarning ? 'Критично' : isWarning ? 'Предупреждение' : 'Порог';
+
     chips.push({
       key: field.key,
       level: isCritical && !isWarning ? 'critical' : isWarning ? 'warning' : 'info',
-      shortLabel: isCritical && !isWarning ? 'Критично' : isWarning ? 'Предупреждение' : 'Порог',
+      shortLabel: field.chipShortLabel ?? defaultShortLabel,
       value: valueText,
       title: field.hint,
     });

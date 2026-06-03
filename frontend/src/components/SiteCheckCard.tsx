@@ -66,7 +66,7 @@ export function SiteCheckCard({ check, canManage, saving, toggling, onSave, onTo
   const Icon = iconConfig.icon;
   const chips = getThresholdChips(check.type, check.settings ?? {});
   const intervalMin = Math.round(check.intervalSeconds / 60);
-  const snapshotLines = formatCheckSnapshot(check.type, check.snapshot);
+  const snapshotLines = formatCheckSnapshot(check.type, check.snapshot, check.settings ?? {});
   const collectedAt = check.snapshot?.collectedAt;
 
   return (

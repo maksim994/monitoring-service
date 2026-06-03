@@ -79,7 +79,11 @@ function formatBackupAge(hours: number): string {
   return `${Math.round(hours)} ч`;
 }
 
-export function formatCheckSnapshot(checkType: string, snapshot: CheckSnapshot | null | undefined): CheckSnapshotLine[] {
+export function formatCheckSnapshot(
+  checkType: string,
+  snapshot: CheckSnapshot | null | undefined,
+  settings?: Record<string, unknown>,
+): CheckSnapshotLine[] {
   if (!snapshot) {
     return [{ text: 'Данных пока нет — дождитесь первого опроса.' }];
   }
@@ -151,13 +155,37 @@ export function formatCheckSnapshot(checkType: string, snapshot: CheckSnapshot |
     }
 
     case 'disk_low': {
+      const warning =
+        typeof settings?.warningPercent === 'number'
+          ? settings.warningPercent
+          : typeof settings?.warningPercent === 'string'
+            ? Number(settings.warningPercent)
+            : null;
+      const critical =
+        typeof settings?.criticalPercent === 'number'
+          ? settings.criticalPercent
+          : typeof settings?.criticalPercent === 'string'
+            ? Number(settings.criticalPercent)
+            : null;
+
       if (typeof value.freePercent === 'number') {
         lines.push({ text: `Свободно: ${value.freePercent}%`, emphasis: true });
+        if (warning !== null && Number.isFinite(warning)) {
+          const belowMin = value.freePercent < warning;
+          lines.push({
+            text: belowMin
+              ? `Ниже вашего минимума (${warning}%)`
+              : `В пределах минимума (≥ ${warning}%)`,
+          });
+        }
       }
       const free = formatBytes(value.freeBytes);
       const total = formatBytes(value.totalBytes);
       if (free && total) {
         lines.push({ text: `${free} из ${total}` });
+      }
+      if (critical !== null && Number.isFinite(critical)) {
+        lines.push({ text: `Критично при свободном < ${critical}%` });
       }
       break;
     }

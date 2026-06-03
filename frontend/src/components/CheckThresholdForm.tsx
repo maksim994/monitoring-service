@@ -97,7 +97,7 @@ export function CheckThresholdForm({
         className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:border-brand-300 hover:text-brand-700 sm:w-auto"
       >
         <Pencil className="h-3.5 w-3.5" />
-        Пороги
+        {meta?.thresholdButtonLabel ?? 'Пороги'}
       </button>
     ) : (
       <Button
@@ -127,7 +127,11 @@ export function CheckThresholdForm({
       <Modal
         open={open}
         onClose={closeModal}
-        title={`Пороги: ${getCheckTypeLabel(checkType)}`}
+        title={
+          checkType === 'disk_low'
+            ? 'Минимум свободного места на диске'
+            : `Пороги: ${getCheckTypeLabel(checkType)}`
+        }
         description={meta?.thresholdsModalDescription}
       >
         <form onSubmit={handleSubmit} className="space-y-5">
