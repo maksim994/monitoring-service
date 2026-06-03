@@ -181,10 +181,13 @@ final class IncidentNotificationFormatter
             $module = is_string($agent['module'] ?? null) ? $agent['module'] : 'unknown';
             $function = is_string($agent['function'] ?? null) ? $agent['function'] : 'unknown';
             $lagSeconds = is_numeric($agent['lagSeconds'] ?? null) ? (int) $agent['lagSeconds'] : 0;
+            $id = is_numeric($agent['id'] ?? null) ? (int) $agent['id'] : 0;
+            $idPart = $id > 0 ? sprintf('#%d ', $id) : '';
             $lines[] = sprintf(
-                '%d) [%s] %s — просрочка %s',
+                '%d) [%s] %s%s — просрочка %s',
                 $index + 1,
                 $module,
+                $idPart,
                 $function,
                 self::formatDuration($lagSeconds),
             );

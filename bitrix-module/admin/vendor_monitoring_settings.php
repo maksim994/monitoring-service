@@ -3,6 +3,7 @@
 use Bitrix\Main\Config\Option;
 use Bitrix\Main\Loader;
 use Bitrix\Main\Localization\Loc;
+use Vendor\Monitoring\Application\Collector\AgentsCollector;
 use Vendor\Monitoring\Application\Collector\BackupCollector;
 use Vendor\Monitoring\Application\Service\ModuleSender;
 
@@ -64,6 +65,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && check_bitrix_sessid()) {
             $message = Loc::getMessage('VENDOR_MONITORING_BACKUP_METRICS_FAIL', ['#STATUS#' => (string) ($result['status'] ?? '')]);
             $messageType = 'error';
         }
+    } elseif (isset($_POST['test_agents_metrics'])) {
+        $inspect = (new AgentsCollector())->inspect();
+        $result = (new ModuleSender())->sendMetricsBatch($inspect['metrics']);
+        if ($result['success'] ?? false) {
+            $message = Loc::getMessage(
+                'VENDOR_MONITORING_AGENTS_METRICS_OK',
+                [
+                    '#STATUS#' => (string) ($result['status'] ?? ''),
+                    '#ACTIVE#' => (string) $inspect['activeCount'],
+                    '#OVERDUE#' => (string) $inspect['overdueCount'],
+                ],
+            );
+            $messageType = 'ok';
+        } else {
+            $message = Loc::getMessage('VENDOR_MONITORING_AGENTS_METRICS_FAIL', ['#STATUS#' => (string) ($result['status'] ?? '')]);
+            $messageType = 'error';
+        }
     } else {
         $message = Loc::getMessage('VENDOR_MONITORING_SAVED');
     }
@@ -76,6 +94,7 @@ $values = [
 ];
 
 $backupInspect = (new BackupCollector())->inspect();
+$agentsInspect = (new AgentsCollector())->inspect();
 
 require $_SERVER['DOCUMENT_ROOT'].'/bitrix/modules/main/include/prolog_admin_after.php';
 ?>
@@ -114,6 +133,7 @@ require $_SERVER['DOCUMENT_ROOT'].'/bitrix/modules/main/include/prolog_admin_aft
     <input type="submit" name="save" value="<?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_SAVE')); ?>">
     <input type="submit" name="test_heartbeat" value="<?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_TEST_HEARTBEAT')); ?>">
     <input type="submit" name="test_backup_metrics" value="<?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_TEST_BACKUP_METRICS')); ?>">
+    <input type="submit" name="test_agents_metrics" value="<?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_TEST_AGENTS_METRICS')); ?>">
 </form>
 
 <?php if ($message): ?>
@@ -212,6 +232,113 @@ require $_SERVER['DOCUMENT_ROOT'].'/bitrix/modules/main/include/prolog_admin_aft
                 </tbody>
             </table>
             <p style="margin-top:8px;color:#666;font-size:12px;"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_BACKUP_GROUPS_HINT')); ?></p>
+        <?php endif; ?>
+    </div>
+</div>
+
+<div class="adm-detail-content-wrap" style="margin-top:20px;">
+    <div class="adm-detail-title"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_DIAG_TITLE')); ?></div>
+    <div class="adm-detail-content">
+        <table class="adm-detail-content-table edit-table">
+            <tr>
+                <td width="40%"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COLLECTOR')); ?></td>
+                <td><code><?= htmlspecialcharsbx((string) $agentsInspect['collector']); ?></code></td>
+            </tr>
+            <tr>
+                <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_ACTIVE')); ?></td>
+                <td><?= (int) $agentsInspect['activeCount']; ?></td>
+            </tr>
+            <tr>
+                <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_OVERDUE')); ?></td>
+                <td><strong><?= (int) $agentsInspect['overdueCount']; ?></strong></td>
+            </tr>
+            <tr>
+                <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_MAX_LAG')); ?></td>
+                <td><?= htmlspecialcharsbx((string) round((int) $agentsInspect['maxLagSeconds'] / 3600, 1)); ?> ч</td>
+            </tr>
+        </table>
+
+        <?php if (($agentsInspect['stuckAgents'] ?? []) !== []): ?>
+            <p style="margin:12px 0 8px;font-weight:600;"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_STUCK_ACTIVE')); ?></p>
+            <table class="adm-list-table" style="width:100%;">
+                <thead>
+                    <tr class="adm-list-table-header">
+                        <td>ID</td>
+                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COL_MODULE')); ?></td>
+                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COL_FUNCTION')); ?></td>
+                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COL_NEXT')); ?></td>
+                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COL_LAG')); ?></td>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($agentsInspect['stuckAgents'] as $agent): ?>
+                        <tr style="background:#fff3e0;">
+                            <td><?= (int) ($agent['id'] ?? 0); ?></td>
+                            <td><?= htmlspecialcharsbx((string) ($agent['module'] ?? '')); ?></td>
+                            <td style="font-size:11px;max-width:360px;word-break:break-all;"><code><?= htmlspecialcharsbx((string) ($agent['function'] ?? '')); ?></code></td>
+                            <td><?= htmlspecialcharsbx((string) ($agent['nextExec'] ?? '')); ?></td>
+                            <td><?= htmlspecialcharsbx((string) round((int) ($agent['lagSeconds'] ?? 0) / 86400, 1)); ?> дн</td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+            <p style="margin-top:8px;color:#666;font-size:12px;"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_STUCK_ACTIVE_HINT')); ?></p>
+        <?php else: ?>
+            <p style="margin-top:12px;color:#2e7d32;"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_NONE_OVERDUE')); ?></p>
+        <?php endif; ?>
+
+        <?php if (($agentsInspect['selfMonitoringOverdue'] ?? []) !== []): ?>
+            <p style="margin:16px 0 8px;font-weight:600;"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_SELF_MONITORING')); ?></p>
+            <table class="adm-list-table" style="width:100%;">
+                <thead>
+                    <tr class="adm-list-table-header">
+                        <td>ID</td>
+                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COL_MODULE')); ?></td>
+                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COL_FUNCTION')); ?></td>
+                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COL_NEXT')); ?></td>
+                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COL_LAG')); ?></td>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($agentsInspect['selfMonitoringOverdue'] as $agent): ?>
+                        <tr style="background:#e3f2fd;">
+                            <td><?= (int) ($agent['id'] ?? 0); ?></td>
+                            <td><?= htmlspecialcharsbx((string) ($agent['module'] ?? '')); ?></td>
+                            <td style="font-size:11px;max-width:360px;word-break:break-all;"><code><?= htmlspecialcharsbx((string) ($agent['function'] ?? '')); ?></code></td>
+                            <td><?= htmlspecialcharsbx((string) ($agent['nextExec'] ?? '')); ?></td>
+                            <td><?= htmlspecialcharsbx((string) round((int) ($agent['lagSeconds'] ?? 0) / 3600, 1)); ?> ч</td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+            <p style="margin-top:8px;color:#666;font-size:12px;"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_SELF_MONITORING_HINT')); ?></p>
+        <?php endif; ?>
+
+        <?php if (($agentsInspect['inactiveOverdueSample'] ?? []) !== []): ?>
+            <p style="margin:16px 0 8px;font-weight:600;"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_INACTIVE_OVERDUE')); ?></p>
+            <table class="adm-list-table" style="width:100%;">
+                <thead>
+                    <tr class="adm-list-table-header">
+                        <td>ID</td>
+                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COL_MODULE')); ?></td>
+                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COL_FUNCTION')); ?></td>
+                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COL_NEXT')); ?></td>
+                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COL_LAG')); ?></td>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($agentsInspect['inactiveOverdueSample'] as $agent): ?>
+                        <tr>
+                            <td><?= (int) ($agent['id'] ?? 0); ?></td>
+                            <td><?= htmlspecialcharsbx((string) ($agent['module'] ?? '')); ?></td>
+                            <td style="font-size:11px;max-width:360px;word-break:break-all;"><code><?= htmlspecialcharsbx((string) ($agent['function'] ?? '')); ?></code></td>
+                            <td><?= htmlspecialcharsbx((string) ($agent['nextExec'] ?? '')); ?></td>
+                            <td><?= htmlspecialcharsbx((string) round((int) ($agent['lagSeconds'] ?? 0) / 86400, 1)); ?> дн</td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+            <p style="margin-top:8px;color:#666;font-size:12px;"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_INACTIVE_OVERDUE_HINT')); ?></p>
         <?php endif; ?>
     </div>
 </div>

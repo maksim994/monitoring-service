@@ -214,6 +214,20 @@ export function formatCheckSnapshot(
       if (typeof value.activeCount === 'number') {
         lines.push({ text: `Активных агентов: ${value.activeCount}` });
       }
+      if (Array.isArray(value.stuckAgents)) {
+        for (const agent of value.stuckAgents.slice(0, 3)) {
+          if (!agent || typeof agent !== 'object') {
+            continue;
+          }
+          const row = agent as Record<string, unknown>;
+          const id = typeof row.id === 'number' ? `#${row.id} ` : '';
+          const module = typeof row.module === 'string' ? row.module : '?';
+          const fn = typeof row.function === 'string' ? row.function : '?';
+          const lag =
+            typeof row.lagSeconds === 'number' ? formatDuration(row.lagSeconds) : '';
+          lines.push({ text: `${id}[${module}] ${fn}${lag ? ` — ${lag}` : ''}` });
+        }
+      }
       break;
     }
 
