@@ -226,9 +226,8 @@ final class NotificationDispatcher
 
         $lines[] = $payload['title'] ?? 'Monitoring notification';
         $lines[] = '';
-            'Severity: '.($payload['severity'] ?? 'info'),
-            'Check: '.($payload['checkType'] ?? 'unknown'),
-        ];
+        $lines[] = 'Severity: '.($payload['severity'] ?? 'info');
+        $lines[] = 'Check: '.($payload['checkType'] ?? 'unknown');
 
         if (isset($payload['siteDomain'])) {
             $lines[] = 'Site: '.$payload['siteDomain'];
