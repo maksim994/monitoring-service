@@ -58,7 +58,7 @@ export function LoginPage() {
 
           <div className="mt-10 grid gap-4">
             {[
-              { icon: Gauge, title: 'Статус сайтов в реальном времени', text: 'Heartbeat, uptime и ключевые метрики в одном месте.' },
+              { icon: Gauge, title: 'Статус сайтов в реальном времени', text: 'Связь с модулем Bitrix, uptime и ключевые метрики в одном месте.' },
               { icon: ShieldCheck, title: 'Bitrix-диагностика', text: 'Агенты, бэкапы, обновления и свободное место на диске.' },
               { icon: BellRing, title: 'Уведомления без лишнего шума', text: 'Telegram, email и webhook с подтверждением проблем.' },
             ].map(({ icon: Icon, title, text }) => (

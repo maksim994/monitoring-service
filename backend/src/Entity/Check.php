@@ -19,6 +19,7 @@ class Check
     public const TYPE_BACKUP_STALE = 'backup_stale';
     public const TYPE_AGENTS_LAG = 'agents_lag';
     public const TYPE_MODULES_UPDATES = 'modules_updates';
+    public const TYPE_HEARTBEAT_MISSING = 'heartbeat_missing';
 
     #[ORM\Id]
     #[ORM\Column(type: 'uuid')]
@@ -118,5 +119,14 @@ class Check
         $url = $this->settingsJson['url'] ?? null;
 
         return is_string($url) && $url !== '' ? $url : null;
+    }
+
+    /** @param array<string, mixed> $settingsJson */
+    public function replaceSettingsJson(array $settingsJson): self
+    {
+        $this->settingsJson = $settingsJson;
+        $this->updatedAt = new \DateTimeImmutable();
+
+        return $this;
     }
 }

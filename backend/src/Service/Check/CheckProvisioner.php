@@ -82,6 +82,7 @@ final class CheckProvisioner
             new Check($organization, $site, Check::TYPE_MODULES_UPDATES, 43200, [
                 'warningUpdatesCount' => 1,
             ]),
+            new Check($organization, $site, Check::TYPE_HEARTBEAT_MISSING, 300, []),
         ];
     }
 }

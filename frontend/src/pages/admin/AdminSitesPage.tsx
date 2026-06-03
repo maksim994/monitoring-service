@@ -54,7 +54,7 @@ export function AdminSitesPage() {
               <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
                 <th className="px-3 py-2 font-medium">Сайт</th>
                 <th className="px-3 py-2 font-medium">Проект</th>
-                <th className="px-3 py-2 font-medium">Heartbeat</th>
+                <th className="px-3 py-2 font-medium">Связь</th>
                 <th className="px-3 py-2 font-medium">Статус</th>
                 <th className="px-3 py-2 font-medium">Действия</th>
               </tr>

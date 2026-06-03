@@ -9,21 +9,24 @@ export const INCIDENT_SEVERITY_META: Record<
   { label: string; badgeClass: string; icon: LucideIcon }
 > = {
   info: {
-    label: 'Info',
+    label: 'Информация',
     badgeClass: 'bg-slate-100 text-slate-700 ring-slate-200',
     icon: Info,
   },
   warning: {
-    label: 'Warning',
+    label: 'Предупреждение',
     badgeClass: 'bg-amber-50 text-amber-700 ring-amber-200',
     icon: AlertTriangle,
   },
   critical: {
-    label: 'Critical',
+    label: 'Критично',
     badgeClass: 'bg-red-50 text-red-700 ring-red-200',
     icon: XCircle,
   },
 };
+
+/** Заголовок колонки в таблице инцидентов */
+export const INCIDENT_SEVERITY_COLUMN_LABEL = 'Важность';
 
 export const INCIDENT_STATUS_META: Record<IncidentStatus, { label: string; badgeClass: string }> = {
   open: {
@@ -52,17 +55,4 @@ export function getIncidentStatusMeta(status: string) {
   return INCIDENT_STATUS_META[status as IncidentStatus] ?? INCIDENT_STATUS_META.open;
 }
 
-export function getCheckTypeLabel(checkType: string) {
-  const labels: Record<string, string> = {
-    heartbeat_missing: 'Нет heartbeat',
-    uptime_http: 'Uptime HTTP',
-    ssl_expiry: 'SSL сертификат',
-    domain_expiry: 'Срок домена',
-    disk_low: 'Мало места на диске',
-    backup_stale: 'Устаревший бэкап',
-    agents_lag: 'Просроченные agents',
-    modules_updates: 'Обновления модулей',
-  };
-
-  return labels[checkType] ?? checkType;
-}
+export { getCheckTypeLabel } from './checks';

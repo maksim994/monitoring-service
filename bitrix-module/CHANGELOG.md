@@ -5,6 +5,7 @@
 ### Added
 
 - `BackupCollector`: метрика `backup.age_hours` по каталогу `/bitrix/backup/`.
+- `BackupCollector`: учёт многотомных архивов Bitrix (`.tar.gz.1` … `.tar.gz.N`), не только `.tar.gz`.
 - `AgentsCollector`: `agents.active_count`, `agents.overdue_count`, `agents.max_lag_seconds`.
 - `ModulesCollector`: `modules.installed_count`, `modules.updates_available_count` (кеш 12 ч).
 - `DiskCollector`: в метрику диска добавлены `totalBytes`, `freeBytes`, `usedBytes`.

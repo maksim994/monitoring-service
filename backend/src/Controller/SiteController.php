@@ -137,6 +137,7 @@ final class SiteController extends AbstractController
                 'type' => $check->getType(),
                 'enabled' => $check->isEnabled(),
                 'intervalSeconds' => $check->getIntervalSeconds(),
+                'settings' => $check->getSettingsJson(),
             ], $this->checkRepository->findBySite($site)),
         ]);
     }

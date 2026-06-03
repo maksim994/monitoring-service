@@ -7,6 +7,7 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
+import { CONNECTION_LABEL, CONNECTION_MISSING_LABEL } from '../lib/checks';
 import { getStatusMeta } from '../lib/status';
 import { canManageSitesInUi } from '../lib/roles';
 
@@ -127,7 +128,7 @@ export function SitesPage() {
         </div>
       )}
 
-      <Card title="Список сайтов" description="Статус подключения, heartbeat и идентификаторы.">
+      <Card title="Список сайтов" description="Статус подключения, связь с модулем Bitrix и идентификаторы.">
         {loading && <p className="text-sm text-slate-500">Загрузка...</p>}
         {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
         {!loading && sites.length === 0 && (
@@ -167,7 +168,7 @@ export function SitesPage() {
                 <tr>
                   <th className="px-4 py-3 text-left font-medium text-slate-500">Домен</th>
                   <th className="px-4 py-3 text-left font-medium text-slate-500">Статус</th>
-                  <th className="px-4 py-3 text-left font-medium text-slate-500">Heartbeat</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-500">{CONNECTION_LABEL}</th>
                   <th className="px-4 py-3 text-left font-medium text-slate-500">Инциденты</th>
                 </tr>
               </thead>
@@ -193,7 +194,7 @@ export function SitesPage() {
                       <td className="px-4 py-4 text-slate-600">
                         {site.lastHeartbeatAt
                           ? new Date(site.lastHeartbeatAt).toLocaleString('ru-RU')
-                          : 'Нет heartbeat'}
+                          : CONNECTION_MISSING_LABEL}
                       </td>
                       <td className="px-4 py-4 text-slate-600">{site.openIncidents}</td>
                     </tr>

@@ -155,11 +155,29 @@ export const api = {
     token,
   ),
   listSites: (token: string) => request<{ items: SiteSummary[] }>('/api/v1/sites', {}, token),
-  getSite: (token: string, siteId: string) => request<SiteDetails & { checks: Array<{ id: string; type: string; enabled: boolean; intervalSeconds: number }> }>(
-    `/api/v1/sites/${siteId}`,
-    {},
-    token,
-  ),
+  getSite: (token: string, siteId: string) =>
+    request<
+      SiteDetails & {
+        checks: Array<{
+          id: string;
+          type: string;
+          enabled: boolean;
+          intervalSeconds: number;
+          settings: Record<string, unknown>;
+        }>;
+      }
+    >(`/api/v1/sites/${siteId}`, {}, token),
+  updateCheck: (
+    token: string,
+    siteId: string,
+    checkId: string,
+    payload: { settings?: Record<string, number>; enabled?: boolean },
+  ) =>
+    request<{ id: string; type: string; enabled: boolean; intervalSeconds: number; settings: Record<string, unknown> }>(
+      `/api/v1/sites/${siteId}/checks/${checkId}`,
+      { method: 'PATCH', body: JSON.stringify(payload) },
+      token,
+    ),
   createSite: (token: string, payload: { domain: string; siteUrl: string }) =>
     request<{ siteId: string; apiSecret: string; site: SiteDetails }>(
       '/api/v1/sites',

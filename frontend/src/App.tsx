@@ -18,7 +18,7 @@ import { UsersPage } from './pages/UsersPage';
 const PAGE_META: Record<string, { title: string; description: string }> = {
   '/': {
     title: 'Обзор',
-    description: 'Сводка по сайтам, heartbeat и текущим рискам.',
+    description: 'Сводка по сайтам, связь с модулем и текущие риски.',
   },
   '/sites': {
     title: 'Сайты',

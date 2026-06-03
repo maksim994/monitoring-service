@@ -1,13 +1,21 @@
 import { type FormEvent, useEffect, useState } from 'react';
-import { Copy, KeyRound, Power, PowerOff, Wrench } from 'lucide-react';
+import { AlertTriangle, Box, Code2, Copy, KeyRound, Power, PowerOff, Radio, Wrench } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { api, type MaintenanceWindow, type SiteDetails } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { SiteMetricCard } from '../components/SiteMetricCard';
 import { Input } from '../components/ui/Input';
-import { getCheckTypeLabel } from '../lib/incidents';
+import { SiteCheckCard } from '../components/SiteCheckCard';
+import {
+  CONNECTION_DESCRIPTION,
+  CONNECTION_LABEL,
+  CONNECTION_MISSING_LABEL,
+  getCheckTypeLabel,
+  MAINTENANCE_WINDOW_HELP,
+} from '../lib/checks';
 import { canManageSites } from '../lib/roles';
 import { getStatusMeta } from '../lib/status';
 
@@ -26,7 +34,17 @@ const MAINTENANCE_CHECK_OPTIONS: Array<{ value: string; label: string }> = [
 export function SiteDetailPage() {
   const { siteId } = useParams();
   const { token, organization } = useAuth();
-  const [site, setSite] = useState<(SiteDetails & { checks?: Array<{ id: string; type: string; enabled: boolean; intervalSeconds: number }> }) | null>(null);
+  const [site, setSite] = useState<
+    (SiteDetails & {
+      checks?: Array<{
+        id: string;
+        type: string;
+        enabled: boolean;
+        intervalSeconds: number;
+        settings: Record<string, unknown>;
+      }>;
+    }) | null
+  >(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -135,6 +153,57 @@ export function SiteDetailPage() {
     }
   }
 
+  function mergeCheckUpdate(checkId: string, patch: Partial<{ settings: Record<string, unknown>; enabled: boolean }>) {
+    setSite((current) => {
+      if (!current?.checks) {
+        return current;
+      }
+      return {
+        ...current,
+        checks: current.checks.map((check) => (check.id === checkId ? { ...check, ...patch } : check)),
+      };
+    });
+  }
+
+  async function onSaveCheckSettings(checkId: string, settings: Record<string, number>) {
+    if (!token || !siteId || !canManage) {
+      return;
+    }
+
+    setActionLoading(`check-${checkId}`);
+    setError(null);
+
+    try {
+      const updated = await api.updateCheck(token, siteId, checkId, { settings });
+      mergeCheckUpdate(checkId, { settings: updated.settings, enabled: updated.enabled });
+      setSuccess('Пороги проверки сохранены');
+    } catch (caught) {
+      setError((caught as { error?: { message?: string } })?.error?.message ?? 'Не удалось сохранить пороги');
+      throw caught;
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function onToggleCheckEnabled(checkId: string, enabled: boolean) {
+    if (!token || !siteId || !canManage) {
+      return;
+    }
+
+    setActionLoading(`check-toggle-${checkId}`);
+    setError(null);
+
+    try {
+      const updated = await api.updateCheck(token, siteId, checkId, { enabled });
+      mergeCheckUpdate(checkId, { enabled: updated.enabled, settings: updated.settings });
+      setSuccess(enabled ? 'Проверка включена' : 'Проверка отключена — новые инциденты не создаются');
+    } catch (caught) {
+      setError((caught as { error?: { message?: string } })?.error?.message ?? 'Не удалось изменить проверку');
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
   async function onToggleSite() {
     if (!token || !siteId || !canManage) {
       return;
@@ -201,26 +270,59 @@ export function SiteDetailPage() {
       {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card title="Heartbeat">
-          <p className="text-sm text-slate-600">
-            {site.lastHeartbeatAt ? new Date(site.lastHeartbeatAt).toLocaleString('ru-RU') : 'Нет heartbeat'}
-          </p>
-        </Card>
-        <Card title="Открытые инциденты">
-          <p className="text-2xl font-semibold text-slate-900">{site.openIncidents}</p>
-        </Card>
-        <Card title="Bitrix">
-          <p className="text-sm text-slate-600">{site.bitrixVersion ?? '—'}</p>
-        </Card>
-        <Card title="PHP">
-          <p className="text-sm text-slate-600">{site.phpVersion ?? '—'}</p>
-        </Card>
+        <SiteMetricCard
+          title={CONNECTION_LABEL}
+          icon={Radio}
+          tone="brand"
+          helpContent={CONNECTION_DESCRIPTION}
+          helpLabel="Что такое связь с модулем"
+          value={
+            site.lastHeartbeatAt
+              ? new Date(site.lastHeartbeatAt).toLocaleString('ru-RU')
+              : CONNECTION_MISSING_LABEL
+          }
+        />
+        <SiteMetricCard
+          title="Открытые инциденты"
+          icon={AlertTriangle}
+          tone={site.openIncidents > 0 ? 'danger' : 'default'}
+          value={site.openIncidents}
+          valueClassName="mt-2 text-2xl font-semibold tracking-tight text-slate-900"
+        />
+        <SiteMetricCard
+          title="Версия Bitrix"
+          icon={Box}
+          tone="default"
+          value={site.bitrixVersion ?? '—'}
+          valueClassName="mt-2 text-sm font-medium text-slate-700"
+        />
+        <SiteMetricCard
+          title="PHP"
+          icon={Code2}
+          tone="default"
+          value={site.phpVersion ?? '—'}
+          valueClassName="mt-2 text-sm font-medium text-slate-700"
+        />
       </div>
 
-      <Card
-        title="Окно обслуживания"
-        description="Во время окна новые инциденты не создаются и не отправляются напоминания в Telegram. Уже открытые инциденты остаются; при восстановлении закрываются как обычно."
-      >
+      <Card title="Окно обслуживания" description={MAINTENANCE_WINDOW_HELP.intro}>
+        <details className="group rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 to-white">
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-violet-900 marker:content-none [&::-webkit-details-marker]:hidden">
+            <span className="inline-flex items-center gap-2">
+              <Wrench className="h-4 w-4 text-violet-600" />
+              {MAINTENANCE_WINDOW_HELP.title}
+              <span className="text-violet-600/70 group-open:hidden">— нажмите, чтобы развернуть</span>
+            </span>
+          </summary>
+          <ul className="space-y-2 border-t border-violet-100 px-4 py-3 text-sm leading-relaxed text-violet-800/95">
+            {MAINTENANCE_WINDOW_HELP.bullets.map((item) => (
+              <li key={item} className="flex gap-2">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-violet-400" />
+                {item}
+              </li>
+            ))}
+          </ul>
+        </details>
         {maintenanceWindows.length === 0 && (
           <p className="text-sm text-slate-500">Нет запланированных или активных окон.</p>
         )}
@@ -296,31 +398,27 @@ export function SiteDetailPage() {
         )}
       </Card>
 
-      <Card title="Проверки" description="Активные правила мониторинга для сайта.">
-        <div className="overflow-x-auto rounded-xl border border-slate-200">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-slate-500">Тип</th>
-                <th className="px-4 py-3 text-left font-medium text-slate-500">Интервал</th>
-                <th className="px-4 py-3 text-left font-medium text-slate-500">Статус</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
-              {(site.checks ?? []).map((check) => (
-                <tr key={check.id}>
-                  <td className="px-4 py-4 font-medium text-slate-900">{getCheckTypeLabel(check.type)}</td>
-                  <td className="px-4 py-4 text-slate-600">{Math.round(check.intervalSeconds / 60)} мин</td>
-                  <td className="px-4 py-4">
-                    <Badge className={check.enabled ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-slate-100 text-slate-600 ring-slate-200'}>
-                      {check.enabled ? 'Включена' : 'Отключена'}
-                    </Badge>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <Card
+        title="Проверки"
+        description="Включайте только нужные проверки и настройте пороги. Снятый «Мониторинг» — инциденты по этой проверке не создаются."
+      >
+        <div className="space-y-3">
+          {(site.checks ?? []).map((check) => (
+            <SiteCheckCard
+              key={check.id}
+              check={check}
+              canManage={canManage}
+              saving={actionLoading === `check-${check.id}`}
+              toggling={actionLoading === `check-toggle-${check.id}`}
+              onSave={(settings) => onSaveCheckSettings(check.id, settings)}
+              onToggleEnabled={(enabled) => onToggleCheckEnabled(check.id, enabled)}
+            />
+          ))}
         </div>
+        <p className="mt-5 rounded-xl bg-slate-50 px-4 py-3 text-xs leading-relaxed text-slate-500 ring-1 ring-slate-100">
+          Связь с модулем и доступность сайта (uptime) используют отдельные правила сервиса — см. блок «Связь с модулем»
+          выше и карточку HTTP.
+        </p>
       </Card>
 
       <Card title="Подключение модуля" description="Site ID и API secret для Bitrix-модуля. После ротации ключа обновите secret на сайте.">

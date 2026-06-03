@@ -11,6 +11,8 @@ use App\Entity\Incident;
 use App\Entity\IncidentEvent;
 use App\Entity\Site;
 use App\Repository\IncidentRepository;
+use App\Service\Check\CheckMonitoringGate;
+use App\Service\Check\CheckThresholdResolver;
 use App\Service\Notification\NotificationDispatcher;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -24,6 +26,8 @@ final class AlertEngine
         private readonly SiteStatusResolver $siteStatusResolver,
         private readonly NotificationDispatcher $notificationDispatcher,
         private readonly MaintenanceWindowService $maintenanceWindowService,
+        private readonly CheckThresholdResolver $checkThresholdResolver,
+        private readonly CheckMonitoringGate $checkMonitoringGate,
         private readonly EntityManagerInterface $entityManager,
         #[Autowire('%env(int:HEARTBEAT_WARNING_SECONDS)%')]
         private readonly int $heartbeatWarningSeconds,
@@ -38,10 +42,23 @@ final class AlertEngine
         $this->siteStatusResolver->sync($site);
     }
 
+    public function resolveIncidentsForCheckType(Site $site, string $checkType): void
+    {
+        $this->resolveCheckType($site, $checkType);
+        $this->siteStatusResolver->sync($site);
+    }
+
     public function onProbeResult(Check $check, CheckResult $result): void
     {
         $site = $check->getSite();
         if ($site->getStatus() === Site::STATUS_DISABLED) {
+            return;
+        }
+
+        if (!$check->isEnabled()) {
+            $this->resolveCheckType($site, $check->getType());
+            $this->siteStatusResolver->sync($site);
+
             return;
         }
 
@@ -62,8 +79,13 @@ final class AlertEngine
             return;
         }
 
-        $warningPercent = 15.0;
-        $criticalPercent = 5.0;
+        if ($this->skipDisabledCheck($site, Incident::CHECK_DISK_LOW)) {
+            return;
+        }
+
+        $diskThresholds = $this->checkThresholdResolver->disk($site);
+        $warningPercent = $diskThresholds['warningPercent'];
+        $criticalPercent = $diskThresholds['criticalPercent'];
 
         $evidence = DiskEvidenceHelper::enrichEvidence($freePercent, $metricValue, $warningPercent, $criticalPercent);
         $title = DiskEvidenceHelper::formatTitle($freePercent, $metricValue);
@@ -100,17 +122,23 @@ final class AlertEngine
             return;
         }
 
+        if ($this->skipDisabledCheck($site, Incident::CHECK_BACKUP_STALE)) {
+            return;
+        }
+
         $tags = is_array($metricValue['tags'] ?? null) ? $metricValue['tags'] : [];
         $backupStatus = is_string($tags['status'] ?? null) ? $tags['status'] : 'unknown';
         $ageHours = is_numeric($metricValue['value'] ?? null) ? (float) $metricValue['value'] : null;
 
-        $warningHours = 72.0;
-        $criticalHours = 168.0;
+        $backupThresholds = $this->checkThresholdResolver->backup($site);
+        $warningHours = $backupThresholds['warningHours'];
+        $criticalHours = $backupThresholds['criticalHours'];
 
         $evidence = [
             'ageHours' => $ageHours,
             'backupStatus' => $backupStatus,
             'lastBackupAt' => $tags['lastBackupAt'] ?? null,
+            'lastBackupName' => $tags['lastBackupName'] ?? null,
             'warningHours' => $warningHours,
             'criticalHours' => $criticalHours,
             'metric' => $metricValue,
@@ -138,7 +166,10 @@ final class AlertEngine
                 Incident::CHECK_BACKUP_STALE,
                 self::FINGERPRINT_DEFAULT,
                 Incident::SEVERITY_CRITICAL,
-                sprintf('Резервная копия устарела (%.0f ч назад)', $ageHours),
+                sprintf(
+                    'Резервная копия устарела (%s)',
+                    IncidentNotificationFormatter::formatAgeHours($ageHours),
+                ),
                 $evidence,
             );
         } else {
@@ -147,7 +178,10 @@ final class AlertEngine
                 Incident::CHECK_BACKUP_STALE,
                 self::FINGERPRINT_DEFAULT,
                 Incident::SEVERITY_WARNING,
-                sprintf('Резервная копия устарела (%.0f ч назад)', $ageHours),
+                sprintf(
+                    'Резервная копия устарела (%s)',
+                    IncidentNotificationFormatter::formatAgeHours($ageHours),
+                ),
                 $evidence,
             );
         }
@@ -164,12 +198,17 @@ final class AlertEngine
             return;
         }
 
+        if ($this->skipDisabledCheck($site, Incident::CHECK_AGENTS_LAG)) {
+            return;
+        }
+
         $maxLagSeconds = $this->metricIntValue($metrics['agents.max_lag_seconds'] ?? null);
         $overdueCount = $this->metricIntValue($metrics['agents.overdue_count'] ?? null);
         $activeCount = $this->metricIntValue($metrics['agents.active_count'] ?? null);
 
-        $warningLagSeconds = 1800;
-        $criticalLagSeconds = 7200;
+        $agentsThresholds = $this->checkThresholdResolver->agents($site);
+        $warningLagSeconds = $agentsThresholds['warningLagSeconds'];
+        $criticalLagSeconds = $agentsThresholds['criticalLagSeconds'];
 
         $overdueMetric = $metrics['agents.overdue_count'] ?? null;
         $tags = is_array($overdueMetric) && is_array($overdueMetric['tags'] ?? null)
@@ -223,6 +262,10 @@ final class AlertEngine
             return;
         }
 
+        if ($this->skipDisabledCheck($site, Incident::CHECK_MODULES_UPDATES)) {
+            return;
+        }
+
         $tags = is_array($metricValue['tags'] ?? null) ? $metricValue['tags'] : [];
         $status = is_string($tags['status'] ?? null) ? $tags['status'] : 'unknown';
         $updatesCount = is_numeric($metricValue['value'] ?? null) ? (int) $metricValue['value'] : null;
@@ -231,7 +274,7 @@ final class AlertEngine
             return;
         }
 
-        $warningUpdatesCount = 1;
+        $warningUpdatesCount = $this->checkThresholdResolver->modulesWarningCount($site);
         $evidence = [
             'updatesAvailableCount' => $updatesCount,
             'warningUpdatesCount' => $warningUpdatesCount,
@@ -369,6 +412,10 @@ final class AlertEngine
 
     private function evaluateHeartbeatMissing(Site $site): void
     {
+        if ($this->skipDisabledCheck($site, Incident::CHECK_HEARTBEAT_MISSING)) {
+            return;
+        }
+
         $referenceAt = $site->getLastHeartbeatAt() ?? $site->getCreatedAt();
         $secondsSince = (new \DateTimeImmutable())->getTimestamp() - $referenceAt->getTimestamp();
 
@@ -389,8 +436,8 @@ final class AlertEngine
         ];
 
         $title = $severity === Incident::SEVERITY_CRITICAL
-            ? sprintf('Нет heartbeat более %d минут', (int) round($this->heartbeatCriticalSeconds / 60))
-            : sprintf('Нет heartbeat более %d минут', (int) round($this->heartbeatWarningSeconds / 60));
+            ? sprintf('Нет связи с модулем более %d мин', (int) round($this->heartbeatCriticalSeconds / 60))
+            : sprintf('Нет связи с модулем более %d мин', (int) round($this->heartbeatWarningSeconds / 60));
 
         $this->openOrUpdateIncident(
             $site,
@@ -434,6 +481,18 @@ final class AlertEngine
         $value = $metric['value'] ?? null;
 
         return is_numeric($value) ? (int) $value : 0;
+    }
+
+    private function skipDisabledCheck(Site $site, string $checkType): bool
+    {
+        if ($this->checkMonitoringGate->isEnabled($site, $checkType)) {
+            return false;
+        }
+
+        $this->resolveCheckType($site, $checkType);
+        $this->siteStatusResolver->sync($site);
+
+        return true;
     }
 
     private function resolveCheckType(Site $site, string $checkType): void

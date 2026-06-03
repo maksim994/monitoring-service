@@ -4,7 +4,12 @@ import { useAuth } from '../auth/AuthContext';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
-import { getCheckTypeLabel, getIncidentSeverityMeta, getIncidentStatusMeta } from '../lib/incidents';
+import {
+  getCheckTypeLabel,
+  getIncidentSeverityMeta,
+  getIncidentStatusMeta,
+  INCIDENT_SEVERITY_COLUMN_LABEL,
+} from '../lib/incidents';
 import { canManageIncidents } from '../lib/roles';
 
 type StatusFilter = 'active' | 'all' | 'resolved';
@@ -118,13 +123,13 @@ export function IncidentsPage() {
             <div className="mt-1 text-2xl font-semibold text-slate-900">{stats.acknowledged}</div>
           </div>
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-            <div className="text-xs uppercase tracking-wide text-red-600">Critical</div>
+            <div className="text-xs uppercase tracking-wide text-red-600">Критичные</div>
             <div className="mt-1 text-2xl font-semibold text-red-700">{stats.critical}</div>
           </div>
         </div>
       )}
 
-      <Card title="Инциденты" description="Алерты по heartbeat, uptime и другим проверкам.">
+      <Card title="Инциденты" description="Алерты по связи с модулем, uptime, диску, бэкапам и другим проверкам.">
         {loading && <p className="text-sm text-slate-500">Загрузка...</p>}
         {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
@@ -141,7 +146,7 @@ export function IncidentsPage() {
                 <tr>
                   <th className="px-4 py-3 text-left font-medium text-slate-500">Инцидент</th>
                   <th className="px-4 py-3 text-left font-medium text-slate-500">Сайт</th>
-                  <th className="px-4 py-3 text-left font-medium text-slate-500">Severity</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-500">{INCIDENT_SEVERITY_COLUMN_LABEL}</th>
                   <th className="px-4 py-3 text-left font-medium text-slate-500">Статус</th>
                   <th className="px-4 py-3 text-left font-medium text-slate-500">Открыт</th>
                   <th className="px-4 py-3 text-right font-medium text-slate-500">Действия</th>

@@ -4,6 +4,10 @@
 
 ### Added
 
+- Карточка сайта: пояснения к проверкам и окну обслуживания, настройка порогов (диск, бэкап, agents, SSL, домен, модули).
+- API `PATCH /api/v1/sites/{siteId}/checks/{checkId}` — пороги в `settings` проверки.
+- Термин «Связь с модулем Bitrix» вместо heartbeat в кабинете и уведомлениях.
+
 - Probe check `domain_expiry` (RDAP best-effort) with incidents for domains expiring within 30/7 days.
 - Module metric `backup.age_hours` and `backup_stale` incidents (warning 3d / critical 7d).
 - `BackupCollector`, `AgentsCollector`, `ModulesCollector` in Bitrix module.

@@ -7,6 +7,7 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { StatCard } from '../components/ui/StatCard';
+import { CONNECTION_LABEL, CONNECTION_MISSING_LABEL } from '../lib/checks';
 import { getStatusMeta } from '../lib/status';
 
 export function OverviewPage() {
@@ -39,9 +40,9 @@ export function OverviewPage() {
     <div className="space-y-8">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Всего сайтов" value={stats.total} icon={Globe2} />
-        <StatCard title="В норме" value={stats.ok} hint="Статус OK" icon={CheckCircle2} tone="success" />
-        <StatCard title="Есть риски" value={stats.warning} hint="Warning-инциденты" icon={AlertTriangle} tone="warning" />
-        <StatCard title="Требуют внимания" value={stats.critical} hint="Critical или без heartbeat" icon={HeartPulse} tone="danger" />
+        <StatCard title="В норме" value={stats.ok} hint="Сайты без активных проблем" icon={CheckCircle2} tone="success" />
+        <StatCard title="Есть риски" value={stats.warning} hint="Инциденты с предупреждением" icon={AlertTriangle} tone="warning" />
+        <StatCard title="Требуют внимания" value={stats.critical} hint="Критичные инциденты или нет связи с модулем" icon={HeartPulse} tone="danger" />
       </div>
 
       {stats.openIncidents > 0 && (
@@ -80,7 +81,7 @@ export function OverviewPage() {
                 <tr>
                   <th className="px-4 py-3 text-left font-medium text-slate-500">Сайт</th>
                   <th className="px-4 py-3 text-left font-medium text-slate-500">Статус</th>
-                  <th className="px-4 py-3 text-left font-medium text-slate-500">Heartbeat</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-500">{CONNECTION_LABEL}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
@@ -105,7 +106,7 @@ export function OverviewPage() {
                       <td className="px-4 py-4 text-slate-600">
                         {site.lastHeartbeatAt
                           ? new Date(site.lastHeartbeatAt).toLocaleString('ru-RU')
-                          : 'Нет heartbeat'}
+                          : CONNECTION_MISSING_LABEL}
                       </td>
                     </tr>
                   );

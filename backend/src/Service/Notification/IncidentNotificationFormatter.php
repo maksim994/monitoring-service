@@ -11,7 +11,7 @@ final class IncidentNotificationFormatter
     public static function checkTypeLabel(string $checkType): string
     {
         return match ($checkType) {
-            'heartbeat_missing' => 'Нет heartbeat',
+            'heartbeat_missing' => 'Связь с модулем Bitrix',
             'uptime_http' => 'Uptime HTTP',
             'ssl_expiry' => 'SSL сертификат',
             'domain_expiry' => 'Срок домена',
@@ -122,9 +122,9 @@ final class IncidentNotificationFormatter
             $lines = [...$lines, ...$detailLines];
         }
 
-        if (isset($payload['openedAt'])) {
+        if (isset($payload['openedAt']) && is_string($payload['openedAt']) && $payload['openedAt'] !== '') {
             $lines[] = '';
-            $lines[] = 'Открыт: '.$payload['openedAt'];
+            $lines[] = 'Открыт: '.self::formatDateTimeRu($payload['openedAt']);
         }
 
         $lines[] = '';
@@ -217,12 +217,17 @@ final class IncidentNotificationFormatter
         $ageHours = $evidence['ageHours'] ?? null;
         $lines = ['Резервная копия Bitrix устарела.'];
         if (is_numeric($ageHours)) {
-            $lines[] = sprintf('Последний бэкап примерно %.0f ч назад.', (float) $ageHours);
+            $lines[] = 'Последний бэкап '.self::formatAgeHours((float) $ageHours, true, true).'.';
         }
 
         $lastBackupAt = $evidence['lastBackupAt'] ?? null;
         if (is_string($lastBackupAt) && $lastBackupAt !== '') {
-            $lines[] = 'Дата последнего архива: '.$lastBackupAt;
+            $lines[] = 'Дата последнего архива: '.self::formatDateTimeRu($lastBackupAt);
+        }
+
+        $lastBackupName = $evidence['lastBackupName'] ?? null;
+        if (is_string($lastBackupName) && $lastBackupName !== '') {
+            $lines[] = 'Архив: '.$lastBackupName;
         }
 
         return $lines;
@@ -284,7 +289,7 @@ final class IncidentNotificationFormatter
             $lines[] = sprintf('Осталось дней: %d.', $daysLeft);
         }
         if (is_string($validTo) && $validTo !== '') {
-            $lines[] = 'Действует до: '.$validTo;
+            $lines[] = 'Действует до: '.self::formatDateTimeRu($validTo);
         }
 
         return $lines;
@@ -302,7 +307,7 @@ final class IncidentNotificationFormatter
             $lines[] = sprintf('Осталось дней: %d.', $daysLeft);
         }
         if (is_string($expiresAt) && $expiresAt !== '') {
-            $lines[] = 'Истекает: '.$expiresAt;
+            $lines[] = 'Истекает: '.self::formatDateTimeRu($expiresAt);
         }
 
         return $lines;
@@ -314,14 +319,14 @@ final class IncidentNotificationFormatter
         $seconds = $evidence['secondsSinceLastHeartbeat'] ?? null;
         $last = $evidence['lastHeartbeatAt'] ?? null;
 
-        $lines = ['Bitrix-модуль не отправлял heartbeat на сервер мониторинга.'];
+        $lines = ['Модуль на сайте не отправлял сигнал связи с сервером мониторинга.'];
         if (is_int($seconds)) {
             $lines[] = 'Нет связи: '.self::formatDuration($seconds).'.';
         }
         if (is_string($last) && $last !== '') {
-            $lines[] = 'Последний heartbeat: '.$last;
+            $lines[] = 'Последний сигнал: '.self::formatDateTimeRu($last);
         } else {
-            $lines[] = 'Heartbeat ещё не был получен.';
+            $lines[] = 'Связь с модулем ещё не была установлена.';
         }
 
         $lines[] = 'Проверьте: модуль установлен, API URL/secret, cron агента модуля.';
@@ -350,5 +355,85 @@ final class IncidentNotificationFormatter
         }
 
         return substr($function, 0, 57).'...';
+    }
+
+    /** Возраст в часах: до 24 ч — в часах, от 24 ч — в днях. */
+    public static function formatAgeHours(float $hours, bool $withAgoSuffix = true, bool $withApproximately = false): string
+    {
+        $prefix = $withApproximately ? 'примерно ' : '';
+        $suffix = $withAgoSuffix ? ' назад' : '';
+
+        if ($hours < 1) {
+            $minutes = max(1, (int) round($hours * 60));
+
+            return $prefix.$minutes.' '.self::pluralizeRu($minutes, 'минуту', 'минуты', 'минут').$suffix;
+        }
+
+        if ($hours < 24) {
+            $roundedHours = max(1, (int) round($hours));
+
+            return $prefix.$roundedHours.' '.self::pluralizeRu($roundedHours, 'час', 'часа', 'часов').$suffix;
+        }
+
+        $days = max(1, (int) round($hours / 24));
+
+        return $prefix.$days.' '.self::pluralizeRu($days, 'день', 'дня', 'дней').$suffix;
+    }
+
+    public static function formatDateTimeRu(\DateTimeInterface|string $value): string
+    {
+        try {
+            $dateTime = $value instanceof \DateTimeInterface
+                ? \DateTimeImmutable::createFromInterface($value)
+                : new \DateTimeImmutable($value);
+        } catch (\Exception) {
+            return is_string($value) ? $value : '';
+        }
+
+        $months = [
+            1 => 'января',
+            2 => 'февраля',
+            3 => 'марта',
+            4 => 'апреля',
+            5 => 'мая',
+            6 => 'июня',
+            7 => 'июля',
+            8 => 'августа',
+            9 => 'сентября',
+            10 => 'октября',
+            11 => 'ноября',
+            12 => 'декабря',
+        ];
+
+        $month = (int) $dateTime->format('n');
+
+        return sprintf(
+            '%d %s %d в %d:%02d',
+            (int) $dateTime->format('j'),
+            $months[$month] ?? $dateTime->format('m'),
+            (int) $dateTime->format('Y'),
+            (int) $dateTime->format('G'),
+            (int) $dateTime->format('i'),
+        );
+    }
+
+    private static function pluralizeRu(int $count, string $one, string $few, string $many): string
+    {
+        $mod100 = $count % 100;
+        $mod10 = $count % 10;
+
+        if ($mod100 >= 11 && $mod100 <= 14) {
+            return $many;
+        }
+
+        if ($mod10 === 1) {
+            return $one;
+        }
+
+        if ($mod10 >= 2 && $mod10 <= 4) {
+            return $few;
+        }
+
+        return $many;
     }
 }

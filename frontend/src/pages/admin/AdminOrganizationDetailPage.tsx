@@ -139,7 +139,7 @@ export function AdminOrganizationDetailPage() {
             <thead>
               <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
                 <th className="px-3 py-2 font-medium">Домен</th>
-                <th className="px-3 py-2 font-medium">Heartbeat</th>
+                <th className="px-3 py-2 font-medium">Связь</th>
                 <th className="px-3 py-2 font-medium">Инциденты</th>
                 <th className="px-3 py-2 font-medium">Статус</th>
               </tr>

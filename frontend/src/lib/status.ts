@@ -13,7 +13,7 @@ export const STATUS_META: Record<
     icon: CircleDashed,
   },
   ok: {
-    label: 'OK',
+    label: 'В норме',
     badgeClass: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
     icon: CheckCircle2,
   },
