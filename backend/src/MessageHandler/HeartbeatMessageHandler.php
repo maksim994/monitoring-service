@@ -8,6 +8,7 @@ use App\Entity\Site;
 use App\Message\HeartbeatMessage;
 use App\Repository\SiteRepository;
 use App\Service\Alert\AlertEngine;
+use App\Service\Check\CheckSnapshotService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Uid\Uuid;
@@ -18,6 +19,7 @@ final class HeartbeatMessageHandler
     public function __construct(
         private readonly SiteRepository $siteRepository,
         private readonly AlertEngine $alertEngine,
+        private readonly CheckSnapshotService $checkSnapshotService,
         private readonly EntityManagerInterface $entityManager,
     ) {
     }
@@ -39,6 +41,7 @@ final class HeartbeatMessageHandler
         );
 
         $this->alertEngine->onHeartbeatReceived($site);
+        $this->checkSnapshotService->recordHeartbeat($site);
 
         $this->entityManager->flush();
     }

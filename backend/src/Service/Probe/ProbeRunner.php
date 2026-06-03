@@ -8,6 +8,7 @@ use App\Entity\Check;
 use App\Entity\CheckResult;
 use App\Repository\CheckResultRepository;
 use App\Service\Alert\AlertEngine;
+use App\Service\Check\CheckSnapshotService;
 
 final class ProbeRunner
 {
@@ -15,6 +16,7 @@ final class ProbeRunner
         private readonly CheckResultRepository $checkResultRepository,
         private readonly DomainExpiryLookup $domainExpiryLookup,
         private readonly AlertEngine $alertEngine,
+        private readonly CheckSnapshotService $checkSnapshotService,
     ) {
     }
 
@@ -28,13 +30,14 @@ final class ProbeRunner
             default => new CheckResult($check, CheckResult::STATUS_UNKNOWN, ['error' => 'Unsupported probe check type'], $probeId),
         };
 
-        return $this->recordResult($check, $base->getStatus(), $base->getValueJson(), $probeId, $previous);
+        return $this->recordResult($check, $base->getStatus(), $base->getValueJson(), $probeId);
     }
 
     public function recordResult(Check $check, string $status, array $valueJson, ?string $probeId = null): CheckResult
     {
         $previous = $this->checkResultRepository->findLatestForCheck($check);
         $result = CheckResult::fromProbe($check, $status, $valueJson, $previous, $probeId);
+        $this->checkSnapshotService->recordFromProbeResult($result);
         $this->alertEngine->onProbeResult($check, $result);
 
         return $result;

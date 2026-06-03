@@ -20,6 +20,7 @@ class Incident
     public const CHECK_BACKUP_STALE = 'backup_stale';
     public const CHECK_AGENTS_LAG = 'agents_lag';
     public const CHECK_MODULES_UPDATES = 'modules_updates';
+    public const CHECK_BITRIX_LICENSE_EXPIRY = 'bitrix_license_expiry';
 
     public const SEVERITY_INFO = 'info';
     public const SEVERITY_WARNING = 'warning';

@@ -36,7 +36,7 @@ final class ProvisionChecksCommand extends Command
             $existing = $this->checkRepository->findBySite($site);
             if ($existing === []) {
                 $this->checkProvisioner->provisionForSite($site);
-                $totalCreated += 7;
+                $totalCreated += 9;
                 $output->writeln(sprintf('Provisioned all checks for site %s', $site->getDomain()));
 
                 continue;

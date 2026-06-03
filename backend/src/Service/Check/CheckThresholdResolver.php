@@ -55,6 +55,17 @@ final class CheckThresholdResolver
         return $this->intSetting($settings, 'warningUpdatesCount', 1);
     }
 
+    /** @return array{warningDays: int, criticalDays: int} */
+    public function bitrixLicense(Site $site): array
+    {
+        $settings = $this->settingsFor($site, Check::TYPE_BITRIX_LICENSE_EXPIRY);
+
+        return [
+            'warningDays' => $this->intSetting($settings, 'warningDays', 30),
+            'criticalDays' => $this->intSetting($settings, 'criticalDays', 7),
+        ];
+    }
+
     /** @return array<string, mixed> */
     private function settingsFor(Site $site, string $type): array
     {

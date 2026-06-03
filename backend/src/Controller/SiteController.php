@@ -14,7 +14,9 @@ use App\Service\Alert\SiteStatusResolver;
 use App\Service\Audit\AuditLogService;
 use App\Service\Billing\PlanLimitExceededException;
 use App\Service\Billing\PlanLimitService;
+use App\Entity\Check;
 use App\Service\Check\CheckProvisioner;
+use App\Service\Check\CheckSnapshotService;
 use App\Service\Security\AccessDeniedException;
 use App\Service\Security\OrganizationAccessService;
 use App\Service\Security\SiteKeyService;
@@ -36,6 +38,7 @@ final class SiteController extends AbstractController
         private readonly OrganizationUserRepository $organizationUserRepository,
         private readonly SiteKeyService $siteKeyService,
         private readonly CheckProvisioner $checkProvisioner,
+        private readonly CheckSnapshotService $checkSnapshotService,
         private readonly PlanLimitService $planLimitService,
         private readonly OrganizationAccessService $organizationAccessService,
         private readonly AuditLogService $auditLogService,
@@ -132,13 +135,10 @@ final class SiteController extends AbstractController
 
         return $this->json([
             ...$this->serializeSiteDetails($site),
-            'checks' => array_map(static fn ($check) => [
-                'id' => (string) $check->getId(),
-                'type' => $check->getType(),
-                'enabled' => $check->isEnabled(),
-                'intervalSeconds' => $check->getIntervalSeconds(),
-                'settings' => $check->getSettingsJson(),
-            ], $this->checkRepository->findBySite($site)),
+            'checks' => array_map(
+                fn (Check $check) => $this->serializeCheck($check),
+                $this->checkRepository->findBySite($site),
+            ),
         ]);
     }
 
@@ -327,6 +327,20 @@ final class SiteController extends AbstractController
             'bitrixVersion' => $site->getBitrixVersion(),
             'phpVersion' => $site->getPhpVersion(),
             'configVersion' => $site->getConfigVersion(),
+        ];
+    }
+
+    private function serializeCheck(Check $check): array
+    {
+        $snapshot = $this->checkSnapshotService->resolveForApi($check);
+
+        return [
+            'id' => (string) $check->getId(),
+            'type' => $check->getType(),
+            'enabled' => $check->isEnabled(),
+            'intervalSeconds' => $check->getIntervalSeconds(),
+            'settings' => $check->getSettingsJson(),
+            'snapshot' => $snapshot,
         ];
     }
 

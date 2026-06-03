@@ -4,6 +4,7 @@
 
 ### Added
 
+- `LicenseCollector`: метрика `license.days_left` через API `\Bitrix\Main\License` (продукт и техподдержка).
 - `BackupCollector`: метрика `backup.age_hours` по каталогу `/bitrix/backup/`.
 - `BackupCollector`: учёт многотомных архивов Bitrix (`.tar.gz.1` … `.tar.gz.N`), не только `.tar.gz`.
 - `AgentsCollector`: `agents.active_count`, `agents.overdue_count`, `agents.max_lag_seconds`.

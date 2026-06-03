@@ -8,6 +8,7 @@ import {
   Lock,
   Package,
   Radio,
+  ScrollText,
   Settings2,
   Timer,
   type LucideIcon,
@@ -16,6 +17,11 @@ import { CheckThresholdForm } from './CheckThresholdForm';
 import { Badge } from './ui/Badge';
 import { Switch } from './ui/Switch';
 import { getCheckMeta, getCheckTypeLabel, getThresholdChips, type ThresholdChip } from '../lib/checks';
+import {
+  formatCheckSnapshot,
+  snapshotStatusClass,
+  type CheckSnapshot,
+} from '../lib/checkSnapshot';
 
 const CHECK_ICONS: Record<string, { icon: LucideIcon; tone: string }> = {
   uptime_http: { icon: Globe, tone: 'bg-sky-50 text-sky-600 ring-sky-100' },
@@ -26,6 +32,7 @@ const CHECK_ICONS: Record<string, { icon: LucideIcon; tone: string }> = {
   agents_lag: { icon: Timer, tone: 'bg-amber-50 text-amber-600 ring-amber-100' },
   modules_updates: { icon: Package, tone: 'bg-emerald-50 text-emerald-600 ring-emerald-100' },
   heartbeat_missing: { icon: Radio, tone: 'bg-brand-50 text-brand-600 ring-brand-100' },
+  bitrix_license_expiry: { icon: ScrollText, tone: 'bg-rose-50 text-rose-600 ring-rose-100' },
 };
 
 const CHIP_STYLES: Record<ThresholdChip['level'], string> = {
@@ -40,6 +47,7 @@ type SiteCheck = {
   enabled: boolean;
   intervalSeconds: number;
   settings: Record<string, unknown>;
+  snapshot?: CheckSnapshot | null;
 };
 
 type Props = {
@@ -58,6 +66,8 @@ export function SiteCheckCard({ check, canManage, saving, toggling, onSave, onTo
   const Icon = iconConfig.icon;
   const chips = getThresholdChips(check.type, check.settings ?? {});
   const intervalMin = Math.round(check.intervalSeconds / 60);
+  const snapshotLines = formatCheckSnapshot(check.type, check.snapshot);
+  const collectedAt = check.snapshot?.collectedAt;
 
   return (
     <article
@@ -112,6 +122,44 @@ export function SiteCheckCard({ check, canManage, saving, toggling, onSave, onTo
           )}
 
           {meta && <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-slate-500">{meta.description}</p>}
+
+          <div className="mt-3 rounded-xl border border-slate-100 bg-gradient-to-br from-slate-50 to-white px-3.5 py-3 ring-1 ring-slate-100/80">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Сейчас</p>
+              {check.snapshot?.status && (
+                <span className={`text-xs font-medium ${snapshotStatusClass(check.snapshot.status)}`}>
+                  {check.snapshot.status === 'ok'
+                    ? 'В норме'
+                    : check.snapshot.status === 'warning'
+                      ? 'Внимание'
+                      : check.snapshot.status === 'critical'
+                        ? 'Критично'
+                        : 'Нет данных'}
+                </span>
+              )}
+            </div>
+            <ul className="mt-2 space-y-1">
+              {snapshotLines.map((line) => (
+                <li
+                  key={line.text}
+                  className={`text-sm leading-snug ${line.emphasis ? 'font-medium text-slate-900' : 'text-slate-600'}`}
+                >
+                  {line.text}
+                </li>
+              ))}
+            </ul>
+            {collectedAt && (
+              <p className="mt-2 text-xs text-slate-400">
+                Обновлено:{' '}
+                {new Date(collectedAt).toLocaleString('ru-RU', {
+                  day: 'numeric',
+                  month: 'short',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </p>
+            )}
+          </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200/80">

@@ -106,7 +106,7 @@ Full secret is shown only once on creation.
 | id | uuid pk |  |
 | organization_id | uuid fk | Denormalized tenant scope |
 | site_id | uuid fk |  |
-| type | varchar(80) | uptime_http, ssl_expiry, domain_expiry, disk_low, backup_stale, agents_lag, modules_updates |
+| type | varchar(80) | uptime_http, ssl_expiry, domain_expiry, disk_low, backup_stale, agents_lag, modules_updates, bitrix_license_expiry, heartbeat_missing |
 | enabled | boolean |  |
 | interval_seconds | integer |  |
 | settings_json | jsonb | URL, method, thresholds |

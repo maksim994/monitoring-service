@@ -300,6 +300,79 @@ final class AlertEngine
         $this->siteStatusResolver->sync($site);
     }
 
+    /** @param array<string, mixed> $metricValue */
+    public function onBitrixLicenseMetric(Site $site, array $metricValue): void
+    {
+        if ($site->getStatus() === Site::STATUS_DISABLED) {
+            return;
+        }
+
+        if ($this->skipDisabledCheck($site, Incident::CHECK_BITRIX_LICENSE_EXPIRY)) {
+            return;
+        }
+
+        $tags = is_array($metricValue['tags'] ?? null) ? $metricValue['tags'] : [];
+        $status = is_string($tags['status'] ?? null) ? $tags['status'] : 'unknown';
+
+        if ($status === 'unknown') {
+            return;
+        }
+
+        if ($status === 'unlimited') {
+            $this->resolveCheckType($site, Incident::CHECK_BITRIX_LICENSE_EXPIRY);
+            $this->siteStatusResolver->sync($site);
+
+            return;
+        }
+
+        $daysLeft = is_numeric($metricValue['value'] ?? null) ? (int) $metricValue['value'] : null;
+        if ($daysLeft === null) {
+            return;
+        }
+
+        $thresholds = $this->checkThresholdResolver->bitrixLicense($site);
+        $warningDays = $thresholds['warningDays'];
+        $criticalDays = $thresholds['criticalDays'];
+
+        $evidence = [
+            'daysLeft' => $daysLeft,
+            'warningDays' => $warningDays,
+            'criticalDays' => $criticalDays,
+            'source' => $tags['source'] ?? null,
+            'edition' => $tags['edition'] ?? null,
+            'isDemo' => $tags['isDemo'] ?? null,
+            'productExpireDate' => $tags['productExpireDate'] ?? null,
+            'supportExpireDate' => $tags['supportExpireDate'] ?? null,
+            'productDaysLeft' => $tags['productDaysLeft'] ?? null,
+            'supportDaysLeft' => $tags['supportDaysLeft'] ?? null,
+            'metric' => $metricValue,
+        ];
+
+        if ($daysLeft >= $warningDays) {
+            $this->resolveCheckType($site, Incident::CHECK_BITRIX_LICENSE_EXPIRY);
+        } elseif ($daysLeft < $criticalDays) {
+            $this->openOrUpdateIncident(
+                $site,
+                Incident::CHECK_BITRIX_LICENSE_EXPIRY,
+                self::FINGERPRINT_DEFAULT,
+                Incident::SEVERITY_CRITICAL,
+                IncidentNotificationFormatter::formatBitrixLicenseIncidentTitle($daysLeft, $evidence, Incident::SEVERITY_CRITICAL),
+                $evidence,
+            );
+        } else {
+            $this->openOrUpdateIncident(
+                $site,
+                Incident::CHECK_BITRIX_LICENSE_EXPIRY,
+                self::FINGERPRINT_DEFAULT,
+                Incident::SEVERITY_WARNING,
+                IncidentNotificationFormatter::formatBitrixLicenseIncidentTitle($daysLeft, $evidence, Incident::SEVERITY_WARNING),
+                $evidence,
+            );
+        }
+
+        $this->siteStatusResolver->sync($site);
+    }
+
     public function evaluateSite(Site $site): void
     {
         if ($site->getStatus() === Site::STATUS_DISABLED) {

@@ -83,6 +83,10 @@ final class CheckProvisioner
                 'warningUpdatesCount' => 1,
             ]),
             new Check($organization, $site, Check::TYPE_HEARTBEAT_MISSING, 300, []),
+            new Check($organization, $site, Check::TYPE_BITRIX_LICENSE_EXPIRY, 86400, [
+                'warningDays' => 30,
+                'criticalDays' => 7,
+            ]),
         ];
     }
 }

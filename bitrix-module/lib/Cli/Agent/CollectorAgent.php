@@ -9,6 +9,7 @@ use Vendor\Monitoring\Application\Collector\AgentsCollector;
 use Vendor\Monitoring\Application\Collector\BackupCollector;
 use Vendor\Monitoring\Application\Collector\DiskCollector;
 use Vendor\Monitoring\Application\Collector\EnvironmentCollector;
+use Vendor\Monitoring\Application\Collector\LicenseCollector;
 use Vendor\Monitoring\Application\Collector\ModulesCollector;
 use Vendor\Monitoring\Application\Service\ModuleSender;
 
@@ -29,6 +30,7 @@ final class CollectorAgent
             (new BackupCollector())->collect(),
             (new AgentsCollector())->collect(),
             (new ModulesCollector())->collect(),
+            (new LicenseCollector())->collect(),
         );
         if ($metrics !== []) {
             $sender->sendMetricsBatch($metrics);

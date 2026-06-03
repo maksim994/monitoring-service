@@ -12,6 +12,7 @@ use App\Repository\OrganizationUserRepository;
 use App\Repository\SiteRepository;
 use App\Service\Alert\AlertEngine;
 use App\Service\Check\CheckSettingsValidator;
+use App\Service\Check\CheckSnapshotService;
 use App\Service\Security\AccessDeniedException;
 use App\Service\Security\OrganizationAccessService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -32,6 +33,7 @@ final class CheckController extends AbstractController
         private readonly OrganizationAccessService $organizationAccessService,
         private readonly CheckSettingsValidator $checkSettingsValidator,
         private readonly AlertEngine $alertEngine,
+        private readonly CheckSnapshotService $checkSnapshotService,
         private readonly EntityManagerInterface $entityManager,
     ) {
     }
@@ -113,6 +115,7 @@ final class CheckController extends AbstractController
             'enabled' => $check->isEnabled(),
             'intervalSeconds' => $check->getIntervalSeconds(),
             'settings' => $check->getSettingsJson(),
+            'snapshot' => $this->checkSnapshotService->resolveForApi($check),
         ];
     }
 

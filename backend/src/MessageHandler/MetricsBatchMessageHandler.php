@@ -8,6 +8,7 @@ use App\Entity\Site;
 use App\Message\MetricsBatchMessage;
 use App\Repository\SiteRepository;
 use App\Service\Alert\AlertEngine;
+use App\Service\Check\CheckSnapshotService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Uid\Uuid;
@@ -18,6 +19,7 @@ final class MetricsBatchMessageHandler
     public function __construct(
         private readonly SiteRepository $siteRepository,
         private readonly AlertEngine $alertEngine,
+        private readonly CheckSnapshotService $checkSnapshotService,
         private readonly EntityManagerInterface $entityManager,
     ) {
     }
@@ -55,14 +57,16 @@ final class MetricsBatchMessageHandler
 
             match ($key) {
                 'disk.free_percent' => $this->handleDiskMetric($site, $metric),
-                'backup.age_hours' => $this->alertEngine->onBackupMetric($site, $metric),
-                'modules.updates_available_count' => $this->alertEngine->onModulesUpdatesMetric($site, $metric),
+                'backup.age_hours' => $this->handleBackupMetric($site, $metric),
+                'modules.updates_available_count' => $this->handleModulesMetric($site, $metric),
+                'license.days_left' => $this->handleLicenseMetric($site, $metric),
                 default => null,
             };
         }
 
         if ($agentsMetrics !== []) {
             $this->alertEngine->onAgentsMetrics($site, $agentsMetrics);
+            $this->checkSnapshotService->recordAgents($site, $agentsMetrics);
         }
 
         $this->entityManager->flush();
@@ -77,5 +81,27 @@ final class MetricsBatchMessageHandler
         }
 
         $this->alertEngine->onDiskMetric($site, (float) $value, $metric);
+        $this->checkSnapshotService->recordDisk($site, $metric);
+    }
+
+    /** @param array<string, mixed> $metric */
+    private function handleBackupMetric(Site $site, array $metric): void
+    {
+        $this->alertEngine->onBackupMetric($site, $metric);
+        $this->checkSnapshotService->recordBackup($site, $metric);
+    }
+
+    /** @param array<string, mixed> $metric */
+    private function handleModulesMetric(Site $site, array $metric): void
+    {
+        $this->alertEngine->onModulesUpdatesMetric($site, $metric);
+        $this->checkSnapshotService->recordModules($site, $metric);
+    }
+
+    /** @param array<string, mixed> $metric */
+    private function handleLicenseMetric(Site $site, array $metric): void
+    {
+        $this->alertEngine->onBitrixLicenseMetric($site, $metric);
+        $this->checkSnapshotService->recordLicense($site, $metric);
     }
 }

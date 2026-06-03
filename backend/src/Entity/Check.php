@@ -20,6 +20,7 @@ class Check
     public const TYPE_AGENTS_LAG = 'agents_lag';
     public const TYPE_MODULES_UPDATES = 'modules_updates';
     public const TYPE_HEARTBEAT_MISSING = 'heartbeat_missing';
+    public const TYPE_BITRIX_LICENSE_EXPIRY = 'bitrix_license_expiry';
 
     #[ORM\Id]
     #[ORM\Column(type: 'uuid')]
@@ -51,6 +52,16 @@ class Check
 
     #[ORM\Column(name: 'updated_at')]
     private \DateTimeImmutable $updatedAt;
+
+    #[ORM\Column(name: 'last_status', length: 30, nullable: true)]
+    private ?string $lastStatus = null;
+
+    /** @var array<string, mixed>|null */
+    #[ORM\Column(name: 'last_value_json', type: 'json', nullable: true)]
+    private ?array $lastValueJson = null;
+
+    #[ORM\Column(name: 'last_collected_at', nullable: true)]
+    private ?\DateTimeImmutable $lastCollectedAt = null;
 
     public function __construct(
         Organization $organization,
@@ -125,6 +136,33 @@ class Check
     public function replaceSettingsJson(array $settingsJson): self
     {
         $this->settingsJson = $settingsJson;
+        $this->updatedAt = new \DateTimeImmutable();
+
+        return $this;
+    }
+
+    public function getLastStatus(): ?string
+    {
+        return $this->lastStatus;
+    }
+
+    /** @return array<string, mixed>|null */
+    public function getLastValueJson(): ?array
+    {
+        return $this->lastValueJson;
+    }
+
+    public function getLastCollectedAt(): ?\DateTimeImmutable
+    {
+        return $this->lastCollectedAt;
+    }
+
+    /** @param array<string, mixed> $value */
+    public function recordSnapshot(string $status, array $value, ?\DateTimeImmutable $collectedAt = null): self
+    {
+        $this->lastStatus = $status;
+        $this->lastValueJson = $value;
+        $this->lastCollectedAt = $collectedAt ?? new \DateTimeImmutable();
         $this->updatedAt = new \DateTimeImmutable();
 
         return $this;

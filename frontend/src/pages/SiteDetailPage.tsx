@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useState } from 'react';
-import { AlertTriangle, Box, Code2, Copy, KeyRound, Power, PowerOff, Radio, Wrench } from 'lucide-react';
+import { AlertTriangle, Box, Code2, Copy, Globe, KeyRound, Lock, Power, PowerOff, Radio, ScrollText, Wrench } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { api, type MaintenanceWindow, type SiteDetails } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
@@ -17,6 +17,7 @@ import {
   MAINTENANCE_WINDOW_HELP,
 } from '../lib/checks';
 import { canManageSites } from '../lib/roles';
+import { getSnapshotMetricDisplay, type CheckSnapshot } from '../lib/checkSnapshot';
 import { getStatusMeta } from '../lib/status';
 
 const MAINTENANCE_CHECK_OPTIONS: Array<{ value: string; label: string }> = [
@@ -29,6 +30,7 @@ const MAINTENANCE_CHECK_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'agents_lag', label: getCheckTypeLabel('agents_lag') },
   { value: 'modules_updates', label: getCheckTypeLabel('modules_updates') },
   { value: 'heartbeat_missing', label: getCheckTypeLabel('heartbeat_missing') },
+  { value: 'bitrix_license_expiry', label: getCheckTypeLabel('bitrix_license_expiry') },
 ];
 
 export function SiteDetailPage() {
@@ -42,6 +44,11 @@ export function SiteDetailPage() {
         enabled: boolean;
         intervalSeconds: number;
         settings: Record<string, unknown>;
+        snapshot?: {
+          status: string;
+          value: Record<string, unknown>;
+          collectedAt: string;
+        } | null;
       }>;
     }) | null
   >(null);
@@ -153,7 +160,18 @@ export function SiteDetailPage() {
     }
   }
 
-  function mergeCheckUpdate(checkId: string, patch: Partial<{ settings: Record<string, unknown>; enabled: boolean }>) {
+  function mergeCheckUpdate(
+    checkId: string,
+    patch: Partial<{
+      settings: Record<string, unknown>;
+      enabled: boolean;
+      snapshot?: {
+        status: string;
+        value: Record<string, unknown>;
+        collectedAt: string;
+      } | null;
+    }>,
+  ) {
     setSite((current) => {
       if (!current?.checks) {
         return current;
@@ -175,7 +193,11 @@ export function SiteDetailPage() {
 
     try {
       const updated = await api.updateCheck(token, siteId, checkId, { settings });
-      mergeCheckUpdate(checkId, { settings: updated.settings, enabled: updated.enabled });
+      mergeCheckUpdate(checkId, {
+        settings: updated.settings,
+        enabled: updated.enabled,
+        snapshot: updated.snapshot,
+      });
       setSuccess('Пороги проверки сохранены');
     } catch (caught) {
       setError((caught as { error?: { message?: string } })?.error?.message ?? 'Не удалось сохранить пороги');
@@ -195,7 +217,11 @@ export function SiteDetailPage() {
 
     try {
       const updated = await api.updateCheck(token, siteId, checkId, { enabled });
-      mergeCheckUpdate(checkId, { enabled: updated.enabled, settings: updated.settings });
+      mergeCheckUpdate(checkId, {
+        enabled: updated.enabled,
+        settings: updated.settings,
+        snapshot: updated.snapshot,
+      });
       setSuccess(enabled ? 'Проверка включена' : 'Проверка отключена — новые инциденты не создаются');
     } catch (caught) {
       setError((caught as { error?: { message?: string } })?.error?.message ?? 'Не удалось изменить проверку');
@@ -241,6 +267,22 @@ export function SiteDetailPage() {
   const status = getStatusMeta(site.status);
   const StatusIcon = status.icon;
   const hasActiveMaintenance = maintenanceWindows.some((window) => window.active);
+
+  const checkSnapshot = (type: string): CheckSnapshot | null | undefined =>
+    site.checks?.find((check) => check.type === type)?.snapshot;
+
+  const sslMetric = getSnapshotMetricDisplay('ssl_expiry', checkSnapshot('ssl_expiry'));
+  const domainMetric = getSnapshotMetricDisplay('domain_expiry', checkSnapshot('domain_expiry'));
+  const licenseMetric = getSnapshotMetricDisplay('bitrix_license_expiry', checkSnapshot('bitrix_license_expiry'));
+
+  function metricValue(display: ReturnType<typeof getSnapshotMetricDisplay>) {
+    return (
+      <>
+        <span>{display.primary}</span>
+        {display.secondary && <span className="mt-1 block text-xs font-normal text-slate-500">{display.secondary}</span>}
+      </>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -302,6 +344,30 @@ export function SiteDetailPage() {
           tone="default"
           value={site.phpVersion ?? '—'}
           valueClassName="mt-2 text-sm font-medium text-slate-700"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <SiteMetricCard
+          title="SSL-сертификат"
+          icon={Lock}
+          tone={sslMetric.tone}
+          value={metricValue(sslMetric)}
+          valueClassName="mt-2 text-sm font-semibold leading-snug text-slate-900"
+        />
+        <SiteMetricCard
+          title="Домен"
+          icon={Globe}
+          tone={domainMetric.tone}
+          value={metricValue(domainMetric)}
+          valueClassName="mt-2 text-sm font-semibold leading-snug text-slate-900"
+        />
+        <SiteMetricCard
+          title="Лицензия 1С-Битрикс"
+          icon={ScrollText}
+          tone={licenseMetric.tone}
+          value={metricValue(licenseMetric)}
+          valueClassName="mt-2 text-sm font-semibold leading-snug text-slate-900"
         />
       </div>
 

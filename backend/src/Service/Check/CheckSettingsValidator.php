@@ -20,7 +20,7 @@ final class CheckSettingsValidator
             Check::TYPE_DISK_LOW => ['warningPercent', 'criticalPercent'],
             Check::TYPE_BACKUP_STALE => ['warningHours', 'criticalHours'],
             Check::TYPE_AGENTS_LAG => ['warningLagSeconds', 'criticalLagSeconds'],
-            Check::TYPE_SSL_EXPIRY, Check::TYPE_DOMAIN_EXPIRY => ['warningDays', 'criticalDays'],
+            Check::TYPE_SSL_EXPIRY, Check::TYPE_DOMAIN_EXPIRY, Check::TYPE_BITRIX_LICENSE_EXPIRY => ['warningDays', 'criticalDays'],
             Check::TYPE_MODULES_UPDATES => ['warningUpdatesCount'],
             default => [],
         };
@@ -50,7 +50,7 @@ final class CheckSettingsValidator
             Check::TYPE_DISK_LOW => $this->assertDisk($settings),
             Check::TYPE_BACKUP_STALE => $this->assertBackup($settings),
             Check::TYPE_AGENTS_LAG => $this->assertAgents($settings),
-            Check::TYPE_SSL_EXPIRY, Check::TYPE_DOMAIN_EXPIRY => $this->assertDays($settings),
+            Check::TYPE_SSL_EXPIRY, Check::TYPE_DOMAIN_EXPIRY, Check::TYPE_BITRIX_LICENSE_EXPIRY => $this->assertDays($settings),
             Check::TYPE_MODULES_UPDATES => $this->assertModules($settings),
             default => throw new \InvalidArgumentException('Неизвестный тип проверки.'),
         };

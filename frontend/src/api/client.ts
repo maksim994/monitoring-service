@@ -164,6 +164,11 @@ export const api = {
           enabled: boolean;
           intervalSeconds: number;
           settings: Record<string, unknown>;
+          snapshot?: {
+            status: string;
+            value: Record<string, unknown>;
+            collectedAt: string;
+          } | null;
         }>;
       }
     >(`/api/v1/sites/${siteId}`, {}, token),
@@ -173,7 +178,18 @@ export const api = {
     checkId: string,
     payload: { settings?: Record<string, number>; enabled?: boolean },
   ) =>
-    request<{ id: string; type: string; enabled: boolean; intervalSeconds: number; settings: Record<string, unknown> }>(
+    request<{
+      id: string;
+      type: string;
+      enabled: boolean;
+      intervalSeconds: number;
+      settings: Record<string, unknown>;
+      snapshot?: {
+        status: string;
+        value: Record<string, unknown>;
+        collectedAt: string;
+      } | null;
+    }>(
       `/api/v1/sites/${siteId}/checks/${checkId}`,
       { method: 'PATCH', body: JSON.stringify(payload) },
       token,

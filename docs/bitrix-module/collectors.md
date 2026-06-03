@@ -92,6 +92,21 @@
 - `modules.updates_available_count`
 - `modules.main_version`
 
+## LicenseCollector
+
+Собирает через `\Bitrix\Main\Application::getInstance()->getLicense()`:
+
+- дней до окончания лицензии продукта (`getExpireDate`);
+- дней до окончания техподдержки (`getSupportExpireDate`);
+- редакцию (`getName`);
+- признаки demo и time-bound.
+
+В метрику `license.days_left` попадает **меньшее** из доступных сроков (что наступит раньше). Статус `unlimited` — без ограничения по сроку, инциденты не создаются.
+
+Запрещено:
+
+- передавать лицензионные ключи (`getKey` и аналоги не вызываются).
+
 ## AgentsCollector
 
 Собирает:

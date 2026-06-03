@@ -19,6 +19,7 @@ final class IncidentNotificationFormatter
             'backup_stale' => 'Устаревший бэкап',
             'agents_lag' => 'Просроченные agents Bitrix',
             'modules_updates' => 'Обновления модулей',
+            'bitrix_license_expiry' => 'Лицензия 1С-Битрикс',
             default => $checkType,
         };
     }
@@ -78,6 +79,23 @@ final class IncidentNotificationFormatter
     }
 
     /** @param array<string, mixed> $evidence */
+    public static function formatBitrixLicenseIncidentTitle(int $daysLeft, array $evidence, string $severity): string
+    {
+        $source = is_string($evidence['source'] ?? null) ? $evidence['source'] : null;
+        $suffix = $source === 'support' ? ' (техподдержка)' : '';
+
+        if ($daysLeft === 0) {
+            return 'Лицензия 1С-Битрикс истекла'.$suffix;
+        }
+
+        if ($severity === 'critical') {
+            return sprintf('Лицензия 1С-Битрикс: осталось %d дн.%s', $daysLeft, $suffix);
+        }
+
+        return sprintf('Лицензия 1С-Битрикс истекает через %d дн.%s', $daysLeft, $suffix);
+    }
+
+    /** @param array<string, mixed> $evidence */
     public static function formatEvidenceDetailLines(string $checkType, array $evidence): array
     {
         return match ($checkType) {
@@ -89,6 +107,7 @@ final class IncidentNotificationFormatter
             'ssl_expiry' => self::formatSslLines($evidence),
             'domain_expiry' => self::formatDomainLines($evidence),
             'heartbeat_missing' => self::formatHeartbeatLines($evidence),
+            'bitrix_license_expiry' => self::formatBitrixLicenseLines($evidence),
             default => [],
         };
     }
@@ -308,6 +327,42 @@ final class IncidentNotificationFormatter
         }
         if (is_string($expiresAt) && $expiresAt !== '') {
             $lines[] = 'Истекает: '.self::formatDateTimeRu($expiresAt);
+        }
+
+        return $lines;
+    }
+
+    /** @param array<string, mixed> $evidence */
+    private static function formatBitrixLicenseLines(array $evidence): array
+    {
+        $daysLeft = $evidence['daysLeft'] ?? null;
+        $source = is_string($evidence['source'] ?? null) ? $evidence['source'] : null;
+        $edition = is_string($evidence['edition'] ?? null) ? $evidence['edition'] : null;
+
+        $lines = ['Срок действия лицензии или техподдержки 1С-Битрикс подходит к концу.'];
+        if ($edition !== null && $edition !== '') {
+            $lines[] = 'Редакция: '.$edition;
+        }
+        if (is_int($daysLeft)) {
+            $lines[] = sprintf('До ближайшего срока: %d дн.', $daysLeft);
+        }
+        if ($source === 'support') {
+            $lines[] = 'Ближайший срок — окончание техподдержки (обновления).';
+        } elseif ($source === 'product') {
+            $lines[] = 'Ближайший срок — окончание лицензии продукта.';
+        }
+        if (is_string($evidence['productExpireDate'] ?? null) && $evidence['productExpireDate'] !== '') {
+            $lines[] = 'Лицензия до: '.self::formatDateTimeRu((string) $evidence['productExpireDate']);
+        }
+        if (is_string($evidence['supportExpireDate'] ?? null) && $evidence['supportExpireDate'] !== '') {
+            $lines[] = 'Техподдержка до: '.self::formatDateTimeRu((string) $evidence['supportExpireDate']);
+        }
+        if (is_numeric($evidence['productDaysLeft'] ?? null) && is_numeric($evidence['supportDaysLeft'] ?? null)) {
+            $lines[] = sprintf(
+                'Отдельно: лицензия %d дн., техподдержка %d дн.',
+                (int) $evidence['productDaysLeft'],
+                (int) $evidence['supportDaysLeft'],
+            );
         }
 
         return $lines;

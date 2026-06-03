@@ -11,6 +11,7 @@
 | `backup_stale` | Module | 1 hour | Свежесть резервных копий |
 | `modules_updates` | Module | 12 hours | Установленные модули и обновления |
 | `agents_lag` | Module | 5 minutes | Просроченные agents |
+| `bitrix_license_expiry` | Module | 24 hours | Срок лицензии и техподдержки 1С-Битрикс (API `License`) |
 | `heartbeat_missing` | Backend | 1 minute evaluation | Связь модуля с backend |
 
 ## Status Values
