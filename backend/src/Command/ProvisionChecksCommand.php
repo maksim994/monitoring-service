@@ -30,15 +30,27 @@ final class ProvisionChecksCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        $totalCreated = 0;
+
         foreach ($this->siteRepository->findAll() as $site) {
-            if ($this->checkRepository->findBySite($site) !== []) {
+            $existing = $this->checkRepository->findBySite($site);
+            if ($existing === []) {
+                $this->checkProvisioner->provisionForSite($site);
+                $totalCreated += 7;
+                $output->writeln(sprintf('Provisioned all checks for site %s', $site->getDomain()));
+
                 continue;
             }
 
-            $this->checkProvisioner->provisionForSite($site);
+            $created = $this->checkProvisioner->provisionMissingForSite($site);
+            if ($created > 0) {
+                $output->writeln(sprintf('Added %d check(s) for site %s', $created, $site->getDomain()));
+                $totalCreated += $created;
+            }
         }
 
         $this->entityManager->flush();
+        $output->writeln(sprintf('Done. Created %d check record(s).', $totalCreated));
 
         return Command::SUCCESS;
     }

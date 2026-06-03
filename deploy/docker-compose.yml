@@ -100,7 +100,7 @@ services:
         condition: service_healthy
     volumes:
       - ../backend:/app
-    command: sh -c "composer install --no-interaction --ignore-platform-req=ext-redis && while true; do php bin/console app:provision-checks; php bin/console app:run-probes --probe-id=scheduler; php bin/console app:evaluate-alerts; sleep 60; done"
+    command: sh -c "composer install --no-interaction --ignore-platform-req=ext-redis && while true; do php bin/console app:provision-checks; php bin/console app:run-probes --probe-id=scheduler; php bin/console app:evaluate-alerts; php bin/console app:dispatch-critical-reminders; sleep 60; done"
 
   frontend:
     image: node:22-bookworm-slim

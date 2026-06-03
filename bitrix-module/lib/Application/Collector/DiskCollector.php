@@ -26,11 +26,17 @@ final class DiskCollector
                 continue;
             }
 
+            $used = $total - $free;
             $metrics[] = [
                 'key' => 'disk.free_percent',
                 'value' => round(($free / $total) * 100, 2),
                 'unit' => 'percent',
-                'tags' => ['path' => $path],
+                'tags' => [
+                    'path' => $path,
+                    'totalBytes' => (int) $total,
+                    'freeBytes' => (int) $free,
+                    'usedBytes' => (int) $used,
+                ],
             ];
             break;
         }

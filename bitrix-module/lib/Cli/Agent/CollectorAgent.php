@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Vendor\Monitoring\Cli\Agent;
 
 use Bitrix\Main\Loader;
+use Vendor\Monitoring\Application\Collector\AgentsCollector;
+use Vendor\Monitoring\Application\Collector\BackupCollector;
 use Vendor\Monitoring\Application\Collector\DiskCollector;
 use Vendor\Monitoring\Application\Collector\EnvironmentCollector;
+use Vendor\Monitoring\Application\Collector\ModulesCollector;
 use Vendor\Monitoring\Application\Service\ModuleSender;
 
 final class CollectorAgent
@@ -21,7 +24,12 @@ final class CollectorAgent
         $environment = (new EnvironmentCollector())->collect();
         $sender->sendHeartbeat($environment);
 
-        $metrics = (new DiskCollector())->collect();
+        $metrics = array_merge(
+            (new DiskCollector())->collect(),
+            (new BackupCollector())->collect(),
+            (new AgentsCollector())->collect(),
+            (new ModulesCollector())->collect(),
+        );
         if ($metrics !== []) {
             $sender->sendMetricsBatch($metrics);
         }

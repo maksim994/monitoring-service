@@ -88,6 +88,19 @@ class IncidentRepository extends ServiceEntityRepository
     }
 
     /** @return list<Incident> */
+    public function findActiveCritical(): array
+    {
+        return $this->createQueryBuilder('i')
+            ->andWhere('i.severity = :severity')
+            ->andWhere('i.status IN (:statuses)')
+            ->setParameter('severity', Incident::SEVERITY_CRITICAL)
+            ->setParameter('statuses', [Incident::STATUS_OPEN, Incident::STATUS_ACKNOWLEDGED])
+            ->orderBy('i.openedAt', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** @return list<Incident> */
     public function findActiveBySite(Site $site): array
     {
         return $this->createQueryBuilder('i')

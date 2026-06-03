@@ -24,7 +24,11 @@ class CheckRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('c')
             ->andWhere('c.enabled = true')
             ->andWhere('c.type IN (:types)')
-            ->setParameter('types', [Check::TYPE_UPTIME_HTTP, Check::TYPE_SSL_EXPIRY])
+            ->setParameter('types', [
+                Check::TYPE_UPTIME_HTTP,
+                Check::TYPE_SSL_EXPIRY,
+                Check::TYPE_DOMAIN_EXPIRY,
+            ])
             ->getQuery()
             ->getResult();
     }

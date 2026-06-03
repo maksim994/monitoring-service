@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `BackupCollector`: метрика `backup.age_hours` по каталогу `/bitrix/backup/`.
+- `AgentsCollector`: `agents.active_count`, `agents.overdue_count`, `agents.max_lag_seconds`.
+- `ModulesCollector`: `modules.installed_count`, `modules.updates_available_count` (кеш 12 ч).
+- `DiskCollector`: в метрику диска добавлены `totalBytes`, `freeBytes`, `usedBytes`.
+
 ## 0.1.0 — 2026-06-02
 
 ### Added
@@ -21,6 +30,6 @@
 
 ### Known limitations
 
-- Collectors backup/modules/agents — в roadmap post-MVP.
+- Тяжёлая проверка обновлений через `CUpdateClient` не чаще 1 раза в 12 часов.
 - Шифрование secret в Option пока не включено (хранится в module options).
 - Поддерживается PHP 8.2+ и Bitrix Main module.

@@ -15,7 +15,11 @@ class Incident
     public const CHECK_HEARTBEAT_MISSING = 'heartbeat_missing';
     public const CHECK_UPTIME_HTTP = 'uptime_http';
     public const CHECK_SSL_EXPIRY = 'ssl_expiry';
+    public const CHECK_DOMAIN_EXPIRY = 'domain_expiry';
     public const CHECK_DISK_LOW = 'disk_low';
+    public const CHECK_BACKUP_STALE = 'backup_stale';
+    public const CHECK_AGENTS_LAG = 'agents_lag';
+    public const CHECK_MODULES_UPDATES = 'modules_updates';
 
     public const SEVERITY_INFO = 'info';
     public const SEVERITY_WARNING = 'warning';
@@ -144,6 +148,22 @@ class Incident
     public function isActive(): bool
     {
         return in_array($this->status, [self::STATUS_OPEN, self::STATUS_ACKNOWLEDGED], true);
+    }
+
+    public function isMuted(): bool
+    {
+        if ($this->status === self::STATUS_MUTED) {
+            return true;
+        }
+
+        return $this->mutedUntil !== null && $this->mutedUntil > new \DateTimeImmutable();
+    }
+
+    public function isEligibleForCriticalReminder(): bool
+    {
+        return $this->isActive()
+            && $this->severity === self::SEVERITY_CRITICAL
+            && !$this->isMuted();
     }
 
     public function acknowledge(): self

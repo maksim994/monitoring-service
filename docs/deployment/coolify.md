@@ -102,8 +102,11 @@ Coolify → ваш ресурс → **Environment Variables**.
 | `FRONTEND_URL` | Публичный URL кабинета, напр. `https://monitoring.example.com` |
 | `PLATFORM_ADMIN_EMAIL` | Email platform admin |
 | `PLATFORM_ADMIN_PASSWORD` | Пароль platform admin (для seed после деплоя) |
-| `MAILER_DSN` | SMTP для email-уведомлений (опционально) |
-| `TELEGRAM_BOT_TOKEN` | Telegram-бот (опционально) |
+| `MAILER_DSN` | SMTP для email-уведомлений (опционально), напр. `smtps://user%40domain.ru:pass@smtp.mail.ru:465`. Для Mail.ru в DSN — **пароль приложения**, не пароль входа в почту |
+| `MAILER_FROM` | Адрес отправителя писем, напр. `mail@mv-deploy.ru` (тот же ящик, что в DSN) |
+| `TELEGRAM_BOT_TOKEN` | Telegram-бот (опционально, можно задать в канале) |
+| `TELEGRAM_PROXY_URL` | HTTP-прокси для `api.telegram.org` (если сервер в РФ) |
+| `CRITICAL_TELEGRAM_REMINDER_SECONDS` | Интервал повтора critical в Telegram (по умолчанию `3600` = 1 ч). `0` — отключить |
 
 Генерация секретов:
 

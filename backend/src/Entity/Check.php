@@ -14,7 +14,11 @@ class Check
 {
     public const TYPE_UPTIME_HTTP = 'uptime_http';
     public const TYPE_SSL_EXPIRY = 'ssl_expiry';
+    public const TYPE_DOMAIN_EXPIRY = 'domain_expiry';
     public const TYPE_DISK_LOW = 'disk_low';
+    public const TYPE_BACKUP_STALE = 'backup_stale';
+    public const TYPE_AGENTS_LAG = 'agents_lag';
+    public const TYPE_MODULES_UPDATES = 'modules_updates';
 
     #[ORM\Id]
     #[ORM\Column(type: 'uuid')]

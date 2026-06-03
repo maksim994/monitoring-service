@@ -12,6 +12,7 @@ use App\Service\Audit\AuditLogService;
 use App\Service\Billing\PlanLimitExceededException;
 use App\Service\Billing\PlanLimitService;
 use App\Service\Notification\NotificationDispatcher;
+use App\Service\Notification\SmtpErrorMessageMapper;
 use App\Service\Notification\WebhookUrlValidator;
 use App\Service\Security\AccessDeniedException;
 use App\Service\Security\OrganizationAccessService;
@@ -136,7 +137,11 @@ final class NotificationChannelController extends AbstractController
         try {
             $this->notificationDispatcher->sendTest($channel);
         } catch (\Throwable $exception) {
-            return $this->error('delivery_failed', $exception->getMessage(), Response::HTTP_BAD_GATEWAY);
+            return $this->error(
+                'delivery_failed',
+                SmtpErrorMessageMapper::toUserMessage($exception),
+                Response::HTTP_BAD_GATEWAY,
+            );
         }
 
         $this->auditLogService->record(
@@ -183,7 +188,13 @@ final class NotificationChannelController extends AbstractController
             throw new \InvalidArgumentException('settings.chatId is required for telegram channel.');
         }
 
-        return ['chatId' => $chatId];
+        $normalized = ['chatId' => $chatId];
+        $botToken = trim((string) ($settings['botToken'] ?? ''));
+        if ($botToken !== '') {
+            $normalized['botToken'] = $botToken;
+        }
+
+        return $normalized;
     }
 
     /** @param array<string, mixed> $settings */
@@ -220,10 +231,26 @@ final class NotificationChannelController extends AbstractController
             'id' => (string) $channel->getId(),
             'type' => $channel->getType(),
             'name' => $channel->getName(),
-            'settings' => $channel->getSettingsJson(),
+            'settings' => $this->serializeSettingsForApi($channel),
             'enabled' => $channel->isEnabled(),
             'createdAt' => $channel->getCreatedAt()->format(DATE_ATOM),
         ];
+    }
+
+    /** @return array<string, mixed> */
+    private function serializeSettingsForApi(NotificationChannel $channel): array
+    {
+        $settings = $channel->getSettingsJson();
+        if ($channel->getType() !== NotificationChannel::TYPE_TELEGRAM) {
+            return $settings;
+        }
+
+        if (isset($settings['botToken']) && is_string($settings['botToken']) && $settings['botToken'] !== '') {
+            $settings['botTokenConfigured'] = true;
+            unset($settings['botToken']);
+        }
+
+        return $settings;
     }
 
     private function error(string $code, string $message, int $status): JsonResponse

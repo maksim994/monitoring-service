@@ -26,6 +26,8 @@ final class AuditLogService
     public const ACTION_USER_REMOVED = 'user.removed';
     public const ACTION_INCIDENT_ACKNOWLEDGED = 'incident.acknowledged';
     public const ACTION_INCIDENT_RESOLVED = 'incident.resolved';
+    public const ACTION_MAINTENANCE_CREATED = 'maintenance.created';
+    public const ACTION_MAINTENANCE_CANCELLED = 'maintenance.cancelled';
 
     public function __construct(
         private readonly EntityManagerInterface $entityManager,

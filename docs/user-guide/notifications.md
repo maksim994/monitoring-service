@@ -36,4 +36,4 @@ MVP поддерживает:
 - critical;
 - конкретные проверки.
 
-Critical notifications can be repeated by interval until the incident is resolved or muted.
+Critical-инциденты в **Telegram** повторяются, пока инцидент открыт (или подтверждён) и не заглушён. Интервал задаётся на сервере: `CRITICAL_TELEGRAM_REMINDER_SECONDS` (по умолчанию 3600 сек = 1 час). Email и webhook при повторе не дублируются.

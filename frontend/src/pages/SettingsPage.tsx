@@ -15,6 +15,12 @@ const CHANNEL_META: Record<ChannelType, { label: string; icon: typeof Mail }> = 
   webhook: { label: 'Webhook', icon: Webhook },
 };
 
+const ADD_CHANNEL_BUTTON_LABEL: Record<ChannelType, string> = {
+  email: 'Добавить email',
+  telegram: 'Добавить Telegram',
+  webhook: 'Добавить webhook',
+};
+
 export function SettingsPage() {
   const { token, organization } = useAuth();
   const [channels, setChannels] = useState<NotificationChannel[]>([]);
@@ -23,6 +29,7 @@ export function SettingsPage() {
   const [name, setName] = useState('Email alerts');
   const [email, setEmail] = useState('');
   const [chatId, setChatId] = useState('');
+  const [botToken, setBotToken] = useState('');
   const [webhookUrl, setWebhookUrl] = useState('');
   const [webhookSecret, setWebhookSecret] = useState('');
   const [loading, setLoading] = useState(true);
@@ -79,7 +86,7 @@ export function SettingsPage() {
       channelType === 'email'
         ? { email }
         : channelType === 'telegram'
-          ? { chatId }
+          ? { chatId, ...(botToken ? { botToken } : {}) }
           : { url: webhookUrl, ...(webhookSecret ? { secret: webhookSecret } : {}) };
 
     try {
@@ -88,6 +95,7 @@ export function SettingsPage() {
       setSuccess('Канал уведомлений добавлен');
       setEmail('');
       setChatId('');
+      setBotToken('');
       setWebhookUrl('');
       setWebhookSecret('');
     } catch (caught) {
@@ -207,7 +215,10 @@ export function SettingsPage() {
       )}
 
       {canManage ? (
-        <Card title="Добавить канал" description="Email, Telegram и webhook. Email в dev попадает в Mailhog: http://localhost:18025">
+        <Card
+          title="Добавить канал"
+          description="Email, Telegram и webhook. SMTP и прокси — в env сервера. Открытые critical в Telegram повторяются каждый час (CRITICAL_TELEGRAM_REMINDER_SECONDS). В dev email в Mailhog: http://localhost:18025"
+        >
           <div className="mb-4 flex flex-wrap gap-2">
             {(Object.keys(CHANNEL_META) as ChannelType[]).map((type) => {
               const disabled = type === 'webhook' && !!plan && !plan.webhooksEnabled;
@@ -235,7 +246,25 @@ export function SettingsPage() {
               <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="alerts@example.ru" required />
             )}
             {channelType === 'telegram' && (
-              <Input label="Chat ID" value={chatId} onChange={(e) => setChatId(e.target.value)} placeholder="-1001234567890" required />
+              <>
+                <Input
+                  label="Bot Token"
+                  type="password"
+                  value={botToken}
+                  onChange={(e) => setBotToken(e.target.value)}
+                  placeholder="123456:ABC-DEF..."
+                  required={false}
+                />
+                <Input label="Chat ID" value={chatId} onChange={(e) => setChatId(e.target.value)} placeholder="-1001234567890" required />
+                <p className="md:col-span-2 text-sm text-slate-500">
+                  Создайте бота через @BotFather, добавьте его в чат/группу и укажите chat id. Если токен задан глобально на сервере (TELEGRAM_BOT_TOKEN), поле можно оставить пустым.
+                </p>
+              </>
+            )}
+            {channelType === 'email' && (
+              <p className="md:col-span-2 text-sm text-slate-500">
+                Укажите email получателя. Отправка через SMTP (MAILER_DSN). Отправитель — MAILER_FROM или логин из DSN (должен совпадать с ящиком Mail.ru).
+              </p>
             )}
             {channelType === 'webhook' && (
               <>
@@ -246,7 +275,7 @@ export function SettingsPage() {
             <div className="md:col-span-2">
               <Button type="submit" disabled={creating}>
                 <Plus className="h-4 w-4" />
-                {creating ? 'Сохранение...' : 'Добавить канал'}
+                {creating ? 'Сохранение...' : ADD_CHANNEL_BUTTON_LABEL[channelType]}
               </Button>
             </div>
           </form>
@@ -272,8 +301,11 @@ export function SettingsPage() {
             {channels.map((channel) => {
               const meta = CHANNEL_META[channel.type as ChannelType] ?? { label: channel.type, icon: BellRing };
               const Icon = meta.icon;
+              const telegramDetail = channel.settings.chatId
+                ? `chat ${channel.settings.chatId}${channel.settings.botTokenConfigured ? ', bot настроен' : ''}`
+                : null;
               const detail =
-                channel.settings.email ?? channel.settings.chatId ?? channel.settings.url ?? channel.type;
+                channel.settings.email ?? telegramDetail ?? channel.settings.url ?? channel.type;
 
               return (
                 <div key={channel.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3">

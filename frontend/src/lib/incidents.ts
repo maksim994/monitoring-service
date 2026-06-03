@@ -57,7 +57,11 @@ export function getCheckTypeLabel(checkType: string) {
     heartbeat_missing: 'Нет heartbeat',
     uptime_http: 'Uptime HTTP',
     ssl_expiry: 'SSL сертификат',
+    domain_expiry: 'Срок домена',
     disk_low: 'Мало места на диске',
+    backup_stale: 'Устаревший бэкап',
+    agents_lag: 'Просроченные agents',
+    modules_updates: 'Обновления модулей',
   };
 
   return labels[checkType] ?? checkType;

@@ -71,7 +71,13 @@ export type NotificationChannel = {
   id: string;
   type: string;
   name: string;
-  settings: { email?: string; chatId?: string; url?: string; secret?: string };
+  settings: {
+    email?: string;
+    chatId?: string;
+    botTokenConfigured?: boolean;
+    url?: string;
+    secret?: string;
+  };
   enabled: boolean;
   createdAt: string;
 };
@@ -114,6 +120,18 @@ export type AuditLogEntry = {
   createdAt: string;
 };
 
+export type MaintenanceWindow = {
+  id: string;
+  siteId: string;
+  title: string;
+  checkType: string | null;
+  startsAt: string;
+  endsAt: string;
+  cancelledAt: string | null;
+  active: boolean;
+  scheduled: boolean;
+};
+
 export type NotificationDeliveryEntry = {
   id: string;
   channelId: string;
@@ -154,6 +172,16 @@ export const api = {
     request<SiteDetails>(`/api/v1/sites/${siteId}/disable`, { method: 'POST' }, token),
   enableSite: (token: string, siteId: string) =>
     request<SiteDetails>(`/api/v1/sites/${siteId}/enable`, { method: 'POST' }, token),
+  listMaintenanceWindows: (token: string, siteId: string) =>
+    request<{ items: MaintenanceWindow[] }>(`/api/v1/sites/${siteId}/maintenance-windows`, {}, token),
+  createMaintenanceWindow: (
+    token: string,
+    siteId: string,
+    payload: { title?: string; durationHours?: number; checkType?: string; startsAt?: string; endsAt?: string },
+  ) =>
+    request<MaintenanceWindow>(`/api/v1/sites/${siteId}/maintenance-windows`, { method: 'POST', body: JSON.stringify(payload) }, token),
+  cancelMaintenanceWindow: (token: string, siteId: string, windowId: string) =>
+    request<MaintenanceWindow>(`/api/v1/sites/${siteId}/maintenance-windows/${windowId}/cancel`, { method: 'POST' }, token),
   listIncidents: (token: string, status?: string) => {
     const query = status ? `?status=${encodeURIComponent(status)}` : '';
     return request<{ items: IncidentSummary[] }>(`/api/v1/incidents${query}`, {}, token);

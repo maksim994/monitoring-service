@@ -13,6 +13,7 @@ final class ProbeRunner
 {
     public function __construct(
         private readonly CheckResultRepository $checkResultRepository,
+        private readonly DomainExpiryLookup $domainExpiryLookup,
         private readonly AlertEngine $alertEngine,
     ) {
     }
@@ -23,6 +24,7 @@ final class ProbeRunner
         $base = match ($check->getType()) {
             Check::TYPE_UPTIME_HTTP => $this->runHttpCheck($check, $probeId),
             Check::TYPE_SSL_EXPIRY => $this->runSslCheck($check, $probeId),
+            Check::TYPE_DOMAIN_EXPIRY => $this->runDomainCheck($check, $probeId),
             default => new CheckResult($check, CheckResult::STATUS_UNKNOWN, ['error' => 'Unsupported probe check type'], $probeId),
         };
 
@@ -160,6 +162,47 @@ final class ProbeRunner
             'validTo' => gmdate('c', $validTo),
             'warningDays' => $warningDays,
             'criticalDays' => $criticalDays,
+        ];
+
+        if ($daysLeft < $criticalDays) {
+            return new CheckResult($check, CheckResult::STATUS_CRITICAL, $valueJson, $probeId);
+        }
+
+        if ($daysLeft < $warningDays) {
+            return new CheckResult($check, CheckResult::STATUS_WARNING, $valueJson, $probeId);
+        }
+
+        return new CheckResult($check, CheckResult::STATUS_OK, $valueJson, $probeId);
+    }
+
+    private function runDomainCheck(Check $check, ?string $probeId): CheckResult
+    {
+        $settings = $check->getSettingsJson();
+        $domain = is_string($settings['domain'] ?? null) && $settings['domain'] !== ''
+            ? $settings['domain']
+            : $check->getSite()->getDomain();
+
+        $warningDays = (int) ($settings['warningDays'] ?? 30);
+        $criticalDays = (int) ($settings['criticalDays'] ?? 7);
+
+        $lookup = $this->domainExpiryLookup->lookup($domain);
+        if (!$lookup->isSuccess()) {
+            return new CheckResult($check, CheckResult::STATUS_UNKNOWN, [
+                'domain' => $domain,
+                'error' => $lookup->error ?? 'Domain expiry lookup failed',
+                'source' => $lookup->source,
+            ], $probeId);
+        }
+
+        $expiresAt = $lookup->expiresAt;
+        $daysLeft = $lookup->daysLeft ?? 0;
+        $valueJson = [
+            'domain' => $domain,
+            'daysLeft' => $daysLeft,
+            'expiresAt' => $expiresAt?->format(DATE_ATOM),
+            'warningDays' => $warningDays,
+            'criticalDays' => $criticalDays,
+            'source' => $lookup->source,
         ];
 
         if ($daysLeft < $criticalDays) {

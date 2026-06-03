@@ -106,7 +106,7 @@ Full secret is shown only once on creation.
 | id | uuid pk |  |
 | organization_id | uuid fk | Denormalized tenant scope |
 | site_id | uuid fk |  |
-| type | varchar(80) | uptime_http, ssl_expiry, disk_low |
+| type | varchar(80) | uptime_http, ssl_expiry, domain_expiry, disk_low, backup_stale, agents_lag, modules_updates |
 | enabled | boolean |  |
 | interval_seconds | integer |  |
 | settings_json | jsonb | URL, method, thresholds |
@@ -131,6 +131,22 @@ Indexes:
 | debounce_seconds | integer |  |
 | repeat_seconds | integer nullable | Notification repeat |
 | enabled | boolean |  |
+| created_at | timestamptz |  |
+| updated_at | timestamptz |  |
+
+### maintenance_windows
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid pk |  |
+| organization_id | uuid fk | Tenant scope |
+| site_id | uuid fk |  |
+| check_type | varchar(80) nullable | Null = all checks on site |
+| title | varchar(255) | Human label |
+| starts_at | timestamptz | Window start |
+| ends_at | timestamptz | Window end |
+| cancelled_at | timestamptz nullable | Early cancel |
+| created_by | uuid nullable | User who created |
 | created_at | timestamptz |  |
 | updated_at | timestamptz |  |
 

@@ -22,6 +22,7 @@ final class AlertEngine
         private readonly IncidentRepository $incidentRepository,
         private readonly SiteStatusResolver $siteStatusResolver,
         private readonly NotificationDispatcher $notificationDispatcher,
+        private readonly MaintenanceWindowService $maintenanceWindowService,
         private readonly EntityManagerInterface $entityManager,
         #[Autowire('%env(int:HEARTBEAT_WARNING_SECONDS)%')]
         private readonly int $heartbeatWarningSeconds,
@@ -46,6 +47,7 @@ final class AlertEngine
         match ($check->getType()) {
             Check::TYPE_UPTIME_HTTP => $this->evaluateUptimeResult($check, $result),
             Check::TYPE_SSL_EXPIRY => $this->evaluateSslResult($check, $result),
+            Check::TYPE_DOMAIN_EXPIRY => $this->evaluateDomainResult($check, $result),
             default => null,
         };
 
@@ -62,12 +64,8 @@ final class AlertEngine
         $warningPercent = 15.0;
         $criticalPercent = 5.0;
 
-        $evidence = [
-            'freePercent' => $freePercent,
-            'warningPercent' => $warningPercent,
-            'criticalPercent' => $criticalPercent,
-            'metric' => $metricValue,
-        ];
+        $evidence = DiskEvidenceHelper::enrichEvidence($freePercent, $metricValue, $warningPercent, $criticalPercent);
+        $title = DiskEvidenceHelper::formatTitle($freePercent, $metricValue);
 
         if ($freePercent >= $warningPercent) {
             $this->resolveCheckType($site, Incident::CHECK_DISK_LOW);
@@ -77,7 +75,7 @@ final class AlertEngine
                 Incident::CHECK_DISK_LOW,
                 self::FINGERPRINT_DEFAULT,
                 Incident::SEVERITY_CRITICAL,
-                sprintf('Свободно %.1f%% диска', $freePercent),
+                $title,
                 $evidence,
             );
         } else {
@@ -86,10 +84,176 @@ final class AlertEngine
                 Incident::CHECK_DISK_LOW,
                 self::FINGERPRINT_DEFAULT,
                 Incident::SEVERITY_WARNING,
-                sprintf('Свободно %.1f%% диска', $freePercent),
+                $title,
                 $evidence,
             );
         }
+
+        $this->siteStatusResolver->sync($site);
+    }
+
+    /** @param array<string, mixed> $metricValue */
+    public function onBackupMetric(Site $site, array $metricValue): void
+    {
+        if ($site->getStatus() === Site::STATUS_DISABLED) {
+            return;
+        }
+
+        $tags = is_array($metricValue['tags'] ?? null) ? $metricValue['tags'] : [];
+        $backupStatus = is_string($tags['status'] ?? null) ? $tags['status'] : 'unknown';
+        $ageHours = is_numeric($metricValue['value'] ?? null) ? (float) $metricValue['value'] : null;
+
+        $warningHours = 72.0;
+        $criticalHours = 168.0;
+
+        $evidence = [
+            'ageHours' => $ageHours,
+            'backupStatus' => $backupStatus,
+            'lastBackupAt' => $tags['lastBackupAt'] ?? null,
+            'warningHours' => $warningHours,
+            'criticalHours' => $criticalHours,
+            'metric' => $metricValue,
+        ];
+
+        if ($backupStatus === 'missing' || $ageHours === null) {
+            $this->openOrUpdateIncident(
+                $site,
+                Incident::CHECK_BACKUP_STALE,
+                self::FINGERPRINT_DEFAULT,
+                Incident::SEVERITY_WARNING,
+                'Резервная копия не обнаружена',
+                $evidence,
+            );
+            $this->siteStatusResolver->sync($site);
+
+            return;
+        }
+
+        if ($ageHours < $warningHours) {
+            $this->resolveCheckType($site, Incident::CHECK_BACKUP_STALE);
+        } elseif ($ageHours >= $criticalHours) {
+            $this->openOrUpdateIncident(
+                $site,
+                Incident::CHECK_BACKUP_STALE,
+                self::FINGERPRINT_DEFAULT,
+                Incident::SEVERITY_CRITICAL,
+                sprintf('Резервная копия устарела (%.0f ч назад)', $ageHours),
+                $evidence,
+            );
+        } else {
+            $this->openOrUpdateIncident(
+                $site,
+                Incident::CHECK_BACKUP_STALE,
+                self::FINGERPRINT_DEFAULT,
+                Incident::SEVERITY_WARNING,
+                sprintf('Резервная копия устарела (%.0f ч назад)', $ageHours),
+                $evidence,
+            );
+        }
+
+        $this->siteStatusResolver->sync($site);
+    }
+
+    /**
+     * @param array<string, array<string, mixed>> $metrics keyed by metric name
+     */
+    public function onAgentsMetrics(Site $site, array $metrics): void
+    {
+        if ($site->getStatus() === Site::STATUS_DISABLED) {
+            return;
+        }
+
+        $maxLagSeconds = $this->metricIntValue($metrics['agents.max_lag_seconds'] ?? null);
+        $overdueCount = $this->metricIntValue($metrics['agents.overdue_count'] ?? null);
+        $activeCount = $this->metricIntValue($metrics['agents.active_count'] ?? null);
+
+        $warningLagSeconds = 1800;
+        $criticalLagSeconds = 7200;
+
+        $overdueMetric = $metrics['agents.overdue_count'] ?? null;
+        $tags = is_array($overdueMetric) && is_array($overdueMetric['tags'] ?? null)
+            ? $overdueMetric['tags']
+            : [];
+        $stuckAgents = $tags['stuckAgents'] ?? [];
+
+        $evidence = [
+            'activeCount' => $activeCount,
+            'overdueCount' => $overdueCount,
+            'maxLagSeconds' => $maxLagSeconds,
+            'warningLagSeconds' => $warningLagSeconds,
+            'criticalLagSeconds' => $criticalLagSeconds,
+            'stuckAgents' => is_array($stuckAgents) ? $stuckAgents : [],
+            'metrics' => $metrics,
+        ];
+
+        if ($maxLagSeconds < $warningLagSeconds && $overdueCount === 0) {
+            $this->resolveCheckType($site, Incident::CHECK_AGENTS_LAG);
+            $this->siteStatusResolver->sync($site);
+
+            return;
+        }
+
+        $severity = $maxLagSeconds >= $criticalLagSeconds
+            ? Incident::SEVERITY_CRITICAL
+            : Incident::SEVERITY_WARNING;
+
+        $title = $overdueCount > 0
+            ? sprintf(
+                'Просрочено %d agent(s), макс. задержка %d мин',
+                $overdueCount,
+                (int) round($maxLagSeconds / 60),
+            )
+            : sprintf('Задержка agents %d мин', (int) round($maxLagSeconds / 60));
+
+        $this->openOrUpdateIncident(
+            $site,
+            Incident::CHECK_AGENTS_LAG,
+            self::FINGERPRINT_DEFAULT,
+            $severity,
+            $title,
+            $evidence,
+        );
+
+        $this->siteStatusResolver->sync($site);
+    }
+
+    /** @param array<string, mixed> $metricValue */
+    public function onModulesUpdatesMetric(Site $site, array $metricValue): void
+    {
+        if ($site->getStatus() === Site::STATUS_DISABLED) {
+            return;
+        }
+
+        $tags = is_array($metricValue['tags'] ?? null) ? $metricValue['tags'] : [];
+        $status = is_string($tags['status'] ?? null) ? $tags['status'] : 'unknown';
+        $updatesCount = is_numeric($metricValue['value'] ?? null) ? (int) $metricValue['value'] : null;
+
+        if ($status === 'unknown' || $updatesCount === null) {
+            return;
+        }
+
+        $warningUpdatesCount = 1;
+        $evidence = [
+            'updatesAvailableCount' => $updatesCount,
+            'warningUpdatesCount' => $warningUpdatesCount,
+            'metric' => $metricValue,
+        ];
+
+        if ($updatesCount < $warningUpdatesCount) {
+            $this->resolveCheckType($site, Incident::CHECK_MODULES_UPDATES);
+            $this->siteStatusResolver->sync($site);
+
+            return;
+        }
+
+        $this->openOrUpdateIncident(
+            $site,
+            Incident::CHECK_MODULES_UPDATES,
+            self::FINGERPRINT_DEFAULT,
+            Incident::SEVERITY_WARNING,
+            sprintf('Доступно обновлений модулей: %d', $updatesCount),
+            $evidence,
+        );
 
         $this->siteStatusResolver->sync($site);
     }
@@ -169,6 +333,43 @@ final class AlertEngine
         );
     }
 
+    private function evaluateDomainResult(Check $check, CheckResult $result): void
+    {
+        if ($result->getStatus() === CheckResult::STATUS_UNKNOWN) {
+            return;
+        }
+
+        $site = $check->getSite();
+        $evidence = $result->getValueJson();
+        $evidence['probeId'] = $result->getProbeId();
+        $evidence['checkedAt'] = $result->getCheckedAt()->format(DATE_ATOM);
+
+        if ($result->getStatus() === CheckResult::STATUS_OK) {
+            $this->resolveCheckType($site, Incident::CHECK_DOMAIN_EXPIRY);
+
+            return;
+        }
+
+        $severity = $result->getStatus() === CheckResult::STATUS_CRITICAL
+            ? Incident::SEVERITY_CRITICAL
+            : Incident::SEVERITY_WARNING;
+
+        $daysLeft = $evidence['daysLeft'] ?? null;
+        $domain = $evidence['domain'] ?? $check->getSite()->getDomain();
+        $title = is_int($daysLeft)
+            ? sprintf('Домен %s истекает через %d дн.', $domain, $daysLeft)
+            : sprintf('Срок домена %s под угрозой', $domain);
+
+        $this->openOrUpdateIncident(
+            $site,
+            Incident::CHECK_DOMAIN_EXPIRY,
+            self::FINGERPRINT_DEFAULT,
+            $severity,
+            $title,
+            $evidence,
+        );
+    }
+
     private function evaluateHeartbeatMissing(Site $site): void
     {
         $referenceAt = $site->getLastHeartbeatAt() ?? $site->getCreatedAt();
@@ -202,6 +403,18 @@ final class AlertEngine
             $title,
             $evidence,
         );
+    }
+
+    /** @param array<string, mixed>|null $metric */
+    private function metricIntValue(?array $metric): int
+    {
+        if ($metric === null) {
+            return 0;
+        }
+
+        $value = $metric['value'] ?? null;
+
+        return is_numeric($value) ? (int) $value : 0;
     }
 
     private function resolveCheckType(Site $site, string $checkType): void
@@ -243,6 +456,10 @@ final class AlertEngine
                 ['severity' => $severity, 'evidence' => $evidence],
             ));
 
+            return;
+        }
+
+        if ($this->maintenanceWindowService->suppressesNewIncidents($site, $checkType)) {
             return;
         }
 

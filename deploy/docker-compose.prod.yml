@@ -42,9 +42,12 @@ services:
       HEARTBEAT_WARNING_SECONDS: ${HEARTBEAT_WARNING_SECONDS:-900}
       HEARTBEAT_CRITICAL_SECONDS: ${HEARTBEAT_CRITICAL_SECONDS:-1800}
       MAILER_DSN: ${MAILER_DSN:-null://null}
+      MAILER_FROM: ${MAILER_FROM:-monitoring@localhost}
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN}
       FRONTEND_URL: ${FRONTEND_URL:?set FRONTEND_URL}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_PROXY_URL: ${TELEGRAM_PROXY_URL:-}
+      CRITICAL_TELEGRAM_REMINDER_SECONDS: ${CRITICAL_TELEGRAM_REMINDER_SECONDS:-3600}
       DEFAULT_URI: ${FRONTEND_URL}
       SYMFONY_TRUSTED_PROXIES: ${SYMFONY_TRUSTED_PROXIES:-0.0.0.0/0}
       SYMFONY_TRUSTED_HEADERS: ${SYMFONY_TRUSTED_HEADERS:-x-forwarded-for,x-forwarded-proto,x-forwarded-host,x-forwarded-port}
@@ -100,6 +103,7 @@ services:
         php bin/console app:provision-checks --env=prod;
         php bin/console app:run-probes --probe-id=scheduler --env=prod;
         php bin/console app:evaluate-alerts --env=prod;
+        php bin/console app:dispatch-critical-reminders --env=prod;
         sleep 60;
       done
       "
