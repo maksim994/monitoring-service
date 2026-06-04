@@ -5,6 +5,7 @@ use Bitrix\Main\Loader;
 use Bitrix\Main\Localization\Loc;
 use Vendor\Monitoring\Application\Collector\AgentsCollector;
 use Vendor\Monitoring\Application\Collector\BackupCollector;
+use Vendor\Monitoring\Application\Service\MetricsPublisher;
 use Vendor\Monitoring\Application\Service\ModuleSender;
 
 require_once $_SERVER['DOCUMENT_ROOT'].'/bitrix/modules/main/include/prolog_admin_before.php';
@@ -63,6 +64,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && check_bitrix_sessid()) {
             $messageType = 'ok';
         } else {
             $message = Loc::getMessage('VENDOR_MONITORING_BACKUP_METRICS_FAIL', ['#STATUS#' => (string) ($result['status'] ?? '')]);
+            $messageType = 'error';
+        }
+    } elseif (isset($_POST['collect_all_metrics'])) {
+        $publish = (new MetricsPublisher())->publishAll();
+        $heartbeatOk = $publish['heartbeat']['success'] ?? false;
+        $metricsOk = $publish['metrics']['success'] ?? false;
+        if ($heartbeatOk && $metricsOk) {
+            $message = Loc::getMessage(
+                'VENDOR_MONITORING_COLLECT_ALL_OK',
+                [
+                    '#STATUS#' => (string) ($publish['metrics']['status'] ?? ''),
+                    '#COUNT#' => (string) $publish['metricsCount'],
+                ],
+            );
+            $messageType = 'ok';
+        } else {
+            $message = Loc::getMessage('VENDOR_MONITORING_COLLECT_ALL_FAIL');
             $messageType = 'error';
         }
     } elseif (isset($_POST['test_agents_metrics'])) {
@@ -134,6 +152,7 @@ require $_SERVER['DOCUMENT_ROOT'].'/bitrix/modules/main/include/prolog_admin_aft
     <input type="submit" name="test_heartbeat" value="<?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_TEST_HEARTBEAT')); ?>">
     <input type="submit" name="test_backup_metrics" value="<?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_TEST_BACKUP_METRICS')); ?>">
     <input type="submit" name="test_agents_metrics" value="<?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_TEST_AGENTS_METRICS')); ?>">
+    <input type="submit" name="collect_all_metrics" value="<?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_COLLECT_ALL')); ?>" style="font-weight:600;">
 </form>
 
 <?php if ($message): ?>

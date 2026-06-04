@@ -12,6 +12,7 @@ use App\Entity\IncidentEvent;
 use App\Entity\Site;
 use App\Repository\IncidentRepository;
 use App\Service\Check\CheckMonitoringGate;
+use App\Service\Check\CheckSnapshotService;
 use App\Service\Check\CheckThresholdResolver;
 use App\Service\Notification\NotificationDispatcher;
 use Doctrine\ORM\EntityManagerInterface;
@@ -28,6 +29,7 @@ final class AlertEngine
         private readonly MaintenanceWindowService $maintenanceWindowService,
         private readonly CheckThresholdResolver $checkThresholdResolver,
         private readonly CheckMonitoringGate $checkMonitoringGate,
+        private readonly CheckSnapshotService $checkSnapshotService,
         private readonly EntityManagerInterface $entityManager,
         #[Autowire('%env(int:HEARTBEAT_WARNING_SECONDS)%')]
         private readonly int $heartbeatWarningSeconds,
@@ -554,6 +556,55 @@ final class AlertEngine
         $value = $metric['value'] ?? null;
 
         return is_numeric($value) ? (int) $value : 0;
+    }
+
+    /**
+     * Пересчитать инциденты по последнему снимку проверки (например, после смены порогов в кабинете).
+     */
+    public function reevaluateAfterSettingsChange(Site $site, Check $check): void
+    {
+        if (!$check->isEnabled()) {
+            return;
+        }
+
+        match ($check->getType()) {
+            Check::TYPE_DISK_LOW => $this->reevaluateDiskFromSnapshot($site, $check),
+            default => null,
+        };
+    }
+
+    private function reevaluateDiskFromSnapshot(Site $site, Check $check): void
+    {
+        $snapshot = $this->checkSnapshotService->resolveForApi($check);
+        if ($snapshot === null) {
+            return;
+        }
+
+        $value = $snapshot['value'];
+        if (!is_array($value)) {
+            return;
+        }
+
+        $freePercent = $value['freePercent'] ?? null;
+        if (!is_numeric($freePercent)) {
+            return;
+        }
+
+        $tags = [];
+        foreach (['freeBytes', 'totalBytes', 'usedBytes', 'path'] as $key) {
+            if (array_key_exists($key, $value) && (is_int($value[$key]) || is_float($value[$key]) || is_string($value[$key]))) {
+                $tags[$key] = $value[$key];
+            }
+        }
+
+        $metric = [
+            'value' => (float) $freePercent,
+            'tags' => $tags,
+        ];
+
+        $this->onDiskMetric($site, (float) $freePercent, $metric);
+        $this->checkSnapshotService->recordDisk($site, $metric);
+        $this->siteStatusResolver->sync($site);
     }
 
     private function skipDisabledCheck(Site $site, string $checkType): bool

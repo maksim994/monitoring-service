@@ -155,6 +155,29 @@ export const api = {
     token,
   ),
   listSites: (token: string) => request<{ items: SiteSummary[] }>('/api/v1/sites', {}, token),
+  refreshSite: (token: string, siteId: string) =>
+    request<
+      SiteDetails & {
+        openIncidents: number;
+        checks: Array<{
+          id: string;
+          type: string;
+          enabled: boolean;
+          intervalSeconds: number;
+          settings: Record<string, unknown>;
+          snapshot?: {
+            status: string;
+            value: Record<string, unknown>;
+            collectedAt: string;
+          } | null;
+        }>;
+        refresh: {
+          probeChecks: string[];
+          moduleCheckTypes: string[];
+          message: string;
+        };
+      }
+    >(`/api/v1/sites/${siteId}/refresh`, { method: 'POST' }, token),
   getSite: (token: string, siteId: string) =>
     request<
       SiteDetails & {

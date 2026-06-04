@@ -35,6 +35,9 @@ $MESS['VENDOR_MONITORING_BACKUP_GROUP_PARTS'] = 'Частей';
 $MESS['VENDOR_MONITORING_BACKUP_GROUP_FILES'] = 'Файлы на диске';
 $MESS['VENDOR_MONITORING_BACKUP_GROUPS_HINT'] = 'Зелёная строка — архив, который уйдёт в monitoring-service. Если свежий бэкап не подсвечен, проверьте расширение файла в /bitrix/backup/';
 
+$MESS['VENDOR_MONITORING_COLLECT_ALL'] = 'Собрать и отправить все метрики';
+$MESS['VENDOR_MONITORING_COLLECT_ALL_OK'] = 'Heartbeat и метрики отправлены (HTTP #STATUS#, метрик: #COUNT#). Обновите страницу сайта в кабинете.';
+$MESS['VENDOR_MONITORING_COLLECT_ALL_FAIL'] = 'Не удалось отправить heartbeat или метрики — проверьте URL API, Site ID и secret.';
 $MESS['VENDOR_MONITORING_TEST_AGENTS_METRICS'] = 'Отправить метрику agents в облако';
 $MESS['VENDOR_MONITORING_AGENTS_METRICS_OK'] = 'Метрика agents отправлена (HTTP #STATUS#). Активных: #ACTIVE#, просрочено: #OVERDUE#';
 $MESS['VENDOR_MONITORING_AGENTS_METRICS_FAIL'] = 'Метрика agents не принята, HTTP #STATUS#';

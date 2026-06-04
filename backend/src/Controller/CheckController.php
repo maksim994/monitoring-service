@@ -104,6 +104,11 @@ final class CheckController extends AbstractController
 
         $this->entityManager->flush();
 
+        if ($hasSettings && $check->isEnabled()) {
+            $this->alertEngine->reevaluateAfterSettingsChange($site, $check);
+            $this->entityManager->flush();
+        }
+
         return $this->json($this->serializeCheck($check));
     }
 

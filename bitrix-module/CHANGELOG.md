@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+
+- `MetricsPublisher`: сбор и отправка всех метрик; кнопка «Собрать и отправить все метрики» в настройках модуля.
+- API `POST /api/v1/sites/{id}/refresh` и кнопка «Обновить данные» в кабинете (внешние проверки сразу).
+
 ### Fixed
 
 - `AgentsCollector` v3: grace по `AGENT_INTERVAL`, исключение `vendor.monitoring` из алерта, id в `stuckAgents`, диагностика в админке.

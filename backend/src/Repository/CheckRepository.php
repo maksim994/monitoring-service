@@ -39,6 +39,24 @@ class CheckRepository extends ServiceEntityRepository
         return $this->findBy(['site' => $site], ['type' => 'ASC']);
     }
 
+    /** @return list<Check> */
+    public function findEnabledProbesForSite(Site $site): array
+    {
+        return $this->createQueryBuilder('c')
+            ->andWhere('c.site = :site')
+            ->andWhere('c.enabled = true')
+            ->andWhere('c.type IN (:types)')
+            ->setParameter('site', $site)
+            ->setParameter('types', [
+                Check::TYPE_UPTIME_HTTP,
+                Check::TYPE_SSL_EXPIRY,
+                Check::TYPE_DOMAIN_EXPIRY,
+            ])
+            ->orderBy('c.type', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     public function findBySiteAndType(Site $site, string $type): ?Check
     {
         return $this->findOneBy(['site' => $site, 'type' => $type]);

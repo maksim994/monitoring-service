@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useState } from 'react';
-import { AlertTriangle, Box, Code2, Copy, Globe, KeyRound, Lock, Power, PowerOff, Radio, ScrollText, Wrench } from 'lucide-react';
+import { AlertTriangle, Box, Code2, Copy, Globe, KeyRound, Lock, Power, PowerOff, Radio, RefreshCw, ScrollText, Wrench } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { api, type MaintenanceWindow, type SiteDetails } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
@@ -81,6 +81,26 @@ export function SiteDetailPage() {
       .catch((caught) => setError((caught as { error?: { message?: string } })?.error?.message ?? 'Не удалось загрузить сайт'))
       .finally(() => setLoading(false));
   }, [token, siteId]);
+
+  async function onRefreshSite() {
+    if (!token || !siteId || isDisabled) {
+      return;
+    }
+
+    setActionLoading('refresh');
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const data = await api.refreshSite(token, siteId);
+      setSite(data);
+      setSuccess(data.refresh?.message ?? 'Данные обновлены.');
+    } catch (caught) {
+      setError((caught as { error?: { message?: string } })?.error?.message ?? 'Не удалось обновить данные');
+    } finally {
+      setActionLoading(null);
+    }
+  }
 
   async function reloadMaintenance() {
     if (!token || !siteId) {
@@ -295,6 +315,15 @@ export function SiteDetailPage() {
           <p className="mt-1 text-sm text-slate-500">{site.siteUrl}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={isDisabled || actionLoading === 'refresh'}
+            onClick={onRefreshSite}
+          >
+            <RefreshCw className={`h-4 w-4 ${actionLoading === 'refresh' ? 'animate-spin' : ''}`} />
+            {actionLoading === 'refresh' ? 'Обновление...' : 'Обновить данные'}
+          </Button>
           {hasActiveMaintenance && (
             <Badge className="bg-violet-50 text-violet-700 ring-violet-200">
               <Wrench className="h-3.5 w-3.5" />
@@ -466,7 +495,7 @@ export function SiteDetailPage() {
 
       <Card
         title="Проверки"
-        description="Включайте только нужные проверки и настройте пороги. Снятый «Мониторинг» — инциденты по этой проверке не создаются."
+        description="Включайте только нужные проверки и настройте пороги. Кнопка «Обновить данные» сверху запускает SSL/домен/uptime сразу; лицензия, диск и бэкап — с сайта через модуль Bitrix."
       >
         <div className="space-y-3">
           {(site.checks ?? []).map((check) => (

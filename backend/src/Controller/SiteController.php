@@ -17,6 +17,7 @@ use App\Service\Billing\PlanLimitService;
 use App\Entity\Check;
 use App\Service\Check\CheckProvisioner;
 use App\Service\Check\CheckSnapshotService;
+use App\Service\Site\SiteRefreshService;
 use App\Service\Security\AccessDeniedException;
 use App\Service\Security\OrganizationAccessService;
 use App\Service\Security\SiteKeyService;
@@ -43,6 +44,7 @@ final class SiteController extends AbstractController
         private readonly OrganizationAccessService $organizationAccessService,
         private readonly AuditLogService $auditLogService,
         private readonly SiteStatusResolver $siteStatusResolver,
+        private readonly SiteRefreshService $siteRefreshService,
         private readonly EntityManagerInterface $entityManager,
     ) {
     }
@@ -139,6 +141,43 @@ final class SiteController extends AbstractController
                 fn (Check $check) => $this->serializeCheck($check),
                 $this->checkRepository->findBySite($site),
             ),
+        ]);
+    }
+
+    #[Route('/{siteId}/refresh', name: 'sites_refresh', methods: ['POST'])]
+    public function refresh(string $siteId): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return $this->error('unauthorized', 'Authentication required.', Response::HTTP_UNAUTHORIZED);
+        }
+
+        try {
+            $this->organizationAccessService->assertCan($user, OrganizationAccessService::PERM_VIEW);
+        } catch (AccessDeniedException $exception) {
+            return $this->error('access_denied', $exception->getMessage(), Response::HTTP_FORBIDDEN);
+        }
+
+        $organization = $this->getCurrentOrganization();
+        $site = $this->findOrganizationSite($siteId, $organization);
+        if ($site instanceof JsonResponse) {
+            return $site;
+        }
+
+        if ($site->getStatus() === Site::STATUS_DISABLED) {
+            return $this->error('invalid_state', 'Сайт отключён — обновление недоступно.', Response::HTTP_CONFLICT);
+        }
+
+        $summary = $this->siteRefreshService->refresh($site);
+
+        return $this->json([
+            ...$this->serializeSiteDetails($site),
+            'openIncidents' => $this->incidentRepository->countOpenBySite($site),
+            'checks' => array_map(
+                fn (Check $check) => $this->serializeCheck($check),
+                $this->checkRepository->findBySite($site),
+            ),
+            'refresh' => $summary,
         ]);
     }
 
