@@ -9,6 +9,7 @@
 
 ### Fixed
 
+- `LicenseCollector`: учёт `Bitrix\Main\Type\Date` (не только `DateTime`) в `getExpireDate` / `getSupportExpireDate`.
 - `AgentsCollector` v3: grace по `AGENT_INTERVAL`, исключение `vendor.monitoring` из алерта, id в `stuckAgents`, диагностика в админке.
 - `BackupCollector`: учёт архивов `.enc` / `.enc.gz` (шифрованные копии Bitrix), обход подкаталогов `/bitrix/backup/`, тег `collector=backup_v2`.
 

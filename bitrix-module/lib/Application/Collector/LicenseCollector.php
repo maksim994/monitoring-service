@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Vendor\Monitoring\Application\Collector;
 
 use Bitrix\Main\Application;
+use Bitrix\Main\Type\Date;
 use Bitrix\Main\Type\DateTime;
 
 final class LicenseCollector
@@ -40,12 +41,14 @@ final class LicenseCollector
             'edition' => (string) $license->getName(),
         ];
 
-        if ($productExpire instanceof DateTime) {
-            $tags['productExpireDate'] = $productExpire->format('c');
+        $productExpireIso = $this->formatExpireForTag($productExpire);
+        if ($productExpireIso !== null) {
+            $tags['productExpireDate'] = $productExpireIso;
         }
 
-        if ($supportExpire instanceof DateTime) {
-            $tags['supportExpireDate'] = $supportExpire->format('c');
+        $supportExpireIso = $this->formatExpireForTag($supportExpire);
+        if ($supportExpireIso !== null) {
+            $tags['supportExpireDate'] = $supportExpireIso;
         }
 
         if (!$license->isTimeBound() && $productDays === null && $supportDays === null) {
@@ -93,15 +96,42 @@ final class LicenseCollector
         ];
     }
 
-    private function computeDaysLeft(?DateTime $date): ?int
+    private function computeDaysLeft(Date|DateTime|null $date): ?int
     {
         if ($date === null) {
             return null;
         }
 
-        $delta = $date->getTimestamp() - time();
+        $timestamp = $this->resolveExpireTimestamp($date);
+        if ($timestamp === null) {
+            return null;
+        }
+
+        $delta = $timestamp - time();
 
         return $delta < 0 ? 0 : (int) ceil($delta / 86400);
+    }
+
+    private function formatExpireForTag(Date|DateTime|null $date): ?string
+    {
+        if ($date === null) {
+            return null;
+        }
+
+        if ($date instanceof DateTime) {
+            return $date->format('c');
+        }
+
+        return $date->format('Y-m-d');
+    }
+
+    private function resolveExpireTimestamp(Date|DateTime $date): ?int
+    {
+        try {
+            return $date->getTimestamp();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**
