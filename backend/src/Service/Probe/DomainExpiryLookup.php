@@ -5,11 +5,23 @@ declare(strict_types=1);
 namespace App\Service\Probe;
 
 /**
- * Best-effort domain expiry via IANA RDAP bootstrap (MVP).
+ * Best-effort domain expiry via IANA RDAP bootstrap with TLD fallbacks and WHOIS for .ru.
  */
 final class DomainExpiryLookup
 {
     private const IANA_BOOTSTRAP_URL = 'https://data.iana.org/rdap/dns.json';
+
+    /** @var array<string, string> */
+    private const TLD_RDAP_FALLBACKS = [
+        'ru' => 'https://rdap.nic.ru/',
+        'su' => 'https://rdap.nic.ru/',
+    ];
+
+    /** @var array<string, string> */
+    private const TLD_WHOIS_HOSTS = [
+        'ru' => 'whois.tcinet.ru',
+        'su' => 'whois.tcinet.ru',
+    ];
 
     /** @var list<array{0: list<string>, 1: list<string>}>|null */
     private ?array $bootstrapServices = null;
@@ -21,6 +33,21 @@ final class DomainExpiryLookup
             return DomainExpiryLookupResult::failed('Invalid domain name');
         }
 
+        $rdap = $this->lookupViaRdap($domain);
+        if ($rdap->isSuccess()) {
+            return $rdap;
+        }
+
+        $whois = $this->lookupViaWhois($domain);
+        if ($whois->isSuccess()) {
+            return $whois;
+        }
+
+        return DomainExpiryLookupResult::failed($whois->error ?? $rdap->error ?? 'Domain expiry lookup failed');
+    }
+
+    private function lookupViaRdap(string $domain): DomainExpiryLookupResult
+    {
         $baseUrl = $this->resolveRdapBaseUrl($domain);
         if ($baseUrl === null) {
             return DomainExpiryLookupResult::failed('RDAP server not found for TLD');
@@ -30,6 +57,12 @@ final class DomainExpiryLookup
         $payload = $this->fetchJson($url);
         if ($payload === null) {
             return DomainExpiryLookupResult::failed('RDAP request failed');
+        }
+
+        if (isset($payload['errorCode'])) {
+            $title = is_string($payload['title'] ?? null) ? $payload['title'] : 'RDAP error';
+
+            return DomainExpiryLookupResult::failed($title);
         }
 
         $expiresAt = $this->extractExpirationDate($payload);
@@ -42,11 +75,34 @@ final class DomainExpiryLookup
         return new DomainExpiryLookupResult($expiresAt, $daysLeft, null, 'rdap');
     }
 
+    private function lookupViaWhois(string $domain): DomainExpiryLookupResult
+    {
+        $tld = $this->extractTld($domain);
+        $host = self::TLD_WHOIS_HOSTS[$tld] ?? null;
+        if ($host === null) {
+            return DomainExpiryLookupResult::failed('WHOIS fallback not configured for TLD');
+        }
+
+        $response = $this->queryWhois($domain, $host);
+        if ($response === null || $response === '') {
+            return DomainExpiryLookupResult::failed('WHOIS request failed');
+        }
+
+        $expiresAt = $this->parseWhoisExpiration($response);
+        if ($expiresAt === null) {
+            return DomainExpiryLookupResult::failed('Expiration date not found in WHOIS response');
+        }
+
+        $daysLeft = (int) floor(($expiresAt->getTimestamp() - time()) / 86400);
+
+        return new DomainExpiryLookupResult($expiresAt, $daysLeft, null, 'whois');
+    }
+
     private function resolveRdapBaseUrl(string $domain): ?string
     {
         $tld = $this->extractTld($domain);
-        if ($tld === '') {
-            return null;
+        if ($tld !== '' && isset(self::TLD_RDAP_FALLBACKS[$tld])) {
+            return self::TLD_RDAP_FALLBACKS[$tld];
         }
 
         foreach ($this->loadBootstrapServices() as $service) {
@@ -97,6 +153,55 @@ final class DomainExpiryLookup
         $this->bootstrapServices = $services;
 
         return $this->bootstrapServices;
+    }
+
+    private function queryWhois(string $domain, string $host): ?string
+    {
+        $socket = @fsockopen($host, 43, $errno, $errstr, 10);
+        if ($socket === false) {
+            return null;
+        }
+
+        stream_set_timeout($socket, 10);
+        fwrite($socket, $domain."\r\n");
+
+        $response = '';
+        while (!feof($socket)) {
+            $chunk = fgets($socket, 8192);
+            if ($chunk === false) {
+                break;
+            }
+
+            $response .= $chunk;
+        }
+
+        fclose($socket);
+
+        return $response !== '' ? $response : null;
+    }
+
+    private function parseWhoisExpiration(string $body): ?\DateTimeImmutable
+    {
+        $patterns = [
+            '/^paid-till:\s*(\S+)/mi',
+            '/^registry expiry date:\s*(\S+)/mi',
+            '/^expiration date:\s*(\S+)/mi',
+            '/^expiry date:\s*(\S+)/mi',
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (!preg_match($pattern, $body, $matches)) {
+                continue;
+            }
+
+            try {
+                return new \DateTimeImmutable($matches[1]);
+            } catch (\Exception) {
+                continue;
+            }
+        }
+
+        return null;
     }
 
     /** @param array<string, mixed> $payload */

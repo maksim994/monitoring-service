@@ -113,44 +113,18 @@ final class ProbeRunner
         $warningDays = (int) ($check->getSettingsJson()['warningDays'] ?? 14);
         $criticalDays = (int) ($check->getSettingsJson()['criticalDays'] ?? 3);
 
-        $context = stream_context_create([
-            'ssl' => [
-                'capture_peer_cert' => true,
-                'verify_peer' => true,
-                'verify_peer_name' => true,
-            ],
-        ]);
+        $sslRead = $this->readSslCertificate($host, (int) $port);
+        if ($sslRead['error'] !== null) {
+            $status = str_contains(strtolower($sslRead['error']), 'handshake') ? CheckResult::STATUS_CRITICAL : CheckResult::STATUS_UNKNOWN;
 
-        $client = @stream_socket_client(
-            sprintf('ssl://%s:%d', $host, $port),
-            $errno,
-            $errstr,
-            10,
-            STREAM_CLIENT_CONNECT,
-            $context,
-        );
-
-        if ($client === false) {
-            return new CheckResult($check, CheckResult::STATUS_CRITICAL, [
+            return new CheckResult($check, $status, [
                 'host' => $host,
-                'error' => $errstr !== '' ? $errstr : 'SSL handshake failed',
-                'errno' => $errno,
+                'error' => $sslRead['error'],
+                'errno' => $sslRead['errno'] ?? 0,
             ], $probeId);
         }
 
-        fclose($client);
-        $params = stream_context_get_params($context);
-        $cert = $params['options']['ssl']['peer_certificate'] ?? null;
-
-        if (!is_resource($cert) && !is_string($cert)) {
-            return new CheckResult($check, CheckResult::STATUS_UNKNOWN, [
-                'host' => $host,
-                'error' => 'Certificate not captured',
-            ], $probeId);
-        }
-
-        $parsed = openssl_x509_parse($cert);
-        $validTo = $parsed['validTo_time_t'] ?? null;
+        $validTo = $sslRead['validTo'];
         if (!is_int($validTo)) {
             return new CheckResult($check, CheckResult::STATUS_UNKNOWN, [
                 'host' => $host,
@@ -165,6 +139,7 @@ final class ProbeRunner
             'validTo' => gmdate('c', $validTo),
             'warningDays' => $warningDays,
             'criticalDays' => $criticalDays,
+            'sslVerifySkipped' => $sslRead['verifySkipped'],
         ];
 
         if ($daysLeft < $criticalDays) {
@@ -176,6 +151,73 @@ final class ProbeRunner
         }
 
         return new CheckResult($check, CheckResult::STATUS_OK, $valueJson, $probeId);
+    }
+
+    /**
+     * @return array{validTo: ?int, error: ?string, errno?: int, verifySkipped: bool}
+     */
+    private function readSslCertificate(string $host, int $port): array
+    {
+        $lastError = 'SSL handshake failed';
+        $lastErrno = 0;
+
+        foreach ([true, false] as $verifyPeer) {
+            $context = stream_context_create([
+                'ssl' => [
+                    'capture_peer_cert' => true,
+                    'verify_peer' => $verifyPeer,
+                    'verify_peer_name' => $verifyPeer,
+                    'SNI_enabled' => true,
+                    'peer_name' => $host,
+                ],
+            ]);
+
+            $client = @stream_socket_client(
+                sprintf('ssl://%s:%d', $host, $port),
+                $errno,
+                $errstr,
+                10,
+                STREAM_CLIENT_CONNECT,
+                $context,
+            );
+
+            if ($client === false) {
+                $lastError = $errstr !== '' ? $errstr : 'SSL handshake failed';
+                $lastErrno = $errno;
+
+                continue;
+            }
+
+            fclose($client);
+            $params = stream_context_get_params($context);
+            $cert = $params['options']['ssl']['peer_certificate'] ?? null;
+
+            if ($cert === null) {
+                $lastError = 'Certificate not captured';
+                $lastErrno = 0;
+
+                continue;
+            }
+
+            $parsed = openssl_x509_parse($cert);
+            $validTo = is_array($parsed) ? ($parsed['validTo_time_t'] ?? null) : null;
+            if (is_int($validTo)) {
+                return [
+                    'validTo' => $validTo,
+                    'error' => null,
+                    'verifySkipped' => !$verifyPeer,
+                ];
+            }
+
+            $lastError = 'Certificate parse failed';
+        }
+
+        return [
+            'validTo' => null,
+            'error' => $lastError,
+            'errno' => $lastErrno,
+            'verifySkipped' => false,
+        ];
     }
 
     private function runDomainCheck(Check $check, ?string $probeId): CheckResult

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed
+
+- SSL probe: certificate parsing on PHP 8+ (`OpenSSLCertificate`), retry without chain verify for expiry read.
+- Domain probe: WHOIS fallback for `.ru` / `.su` when RDAP returns no expiration.
+
+
 ### Added
 
 - В карточках проверок блок «Сейчас»: актуальные даты SSL, домена, лицензии Bitrix, бэкапа, диска и др. (snapshot в API).

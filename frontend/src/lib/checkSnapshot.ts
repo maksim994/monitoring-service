@@ -301,6 +301,15 @@ function toneFromSnapshotStatus(status?: string): SnapshotMetricTone {
   }
 }
 
+function shortenError(message: string, fallback: string): string {
+  const trimmed = message.trim();
+  if (trimmed === '') {
+    return fallback;
+  }
+
+  return trimmed.length > 48 ? `${trimmed.slice(0, 48)}…` : trimmed;
+}
+
 const NO_DATA: SnapshotMetricDisplay = {
   primary: 'Нет данных',
   secondary: 'Ожидаем первый опрос',
@@ -320,18 +329,31 @@ export function getSnapshotMetricDisplay(
 
   if (checkType === 'ssl_expiry') {
     if (typeof value.error === 'string') {
-      return { primary: 'Не проверено', secondary: 'Ошибка SSL', tone: 'warning' };
+      return {
+        primary: 'Не проверено',
+        secondary: shortenError(value.error, 'Ошибка SSL'),
+        tone: 'warning',
+      };
     }
     const primary =
       typeof value.validTo === 'string' ? formatDateRu(value.validTo) : typeof value.daysLeft === 'number' ? `${value.daysLeft} дн.` : '—';
-    const secondary = typeof value.daysLeft === 'number' ? `осталось ${value.daysLeft} дн.` : undefined;
+    const secondary =
+      typeof value.daysLeft === 'number'
+        ? `осталось ${value.daysLeft} дн.`
+        : typeof value.sslVerifySkipped === 'boolean' && value.sslVerifySkipped
+          ? 'срок без проверки цепочки'
+          : undefined;
 
     return { primary, secondary, tone };
   }
 
   if (checkType === 'domain_expiry') {
     if (typeof value.error === 'string') {
-      return { primary: 'Не определён', secondary: 'RDAP недоступен', tone: 'warning' };
+      return {
+        primary: 'Не определён',
+        secondary: shortenError(value.error, 'Срок не определён'),
+        tone: 'warning',
+      };
     }
     const primary =
       typeof value.expiresAt === 'string'
@@ -339,7 +361,10 @@ export function getSnapshotMetricDisplay(
         : typeof value.daysLeft === 'number'
           ? `${value.daysLeft} дн.`
           : '—';
-    const secondary = typeof value.daysLeft === 'number' ? `осталось ${value.daysLeft} дн.` : undefined;
+    const secondary =
+      typeof value.daysLeft === 'number'
+        ? `осталось ${value.daysLeft} дн.${value.source === 'whois' ? ' (WHOIS)' : ''}`
+        : undefined;
 
     return { primary, secondary, tone };
   }
