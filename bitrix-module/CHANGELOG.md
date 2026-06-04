@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- Админка: стандартный `Loc::loadMessages` + `ModuleManager::getModuleRootPath` (удалён самописный AdminLang).
+- Админка: стандартный `Loc::loadMessages(__FILE__)` (удалён самописный AdminLang).
 - Админка настроек: явная загрузка lang (ru/en), обёртка `adm-workarea`, stub в `/bitrix/admin/` с абсолютным путём при установке.
 
 ### Added

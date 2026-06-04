@@ -3,7 +3,6 @@
 use Bitrix\Main\Config\Option;
 use Bitrix\Main\Loader;
 use Bitrix\Main\Localization\Loc;
-use Bitrix\Main\ModuleManager;
 use Vendor\Monitoring\Application\Collector\AgentsCollector;
 use Vendor\Monitoring\Application\Collector\BackupCollector;
 use Vendor\Monitoring\Application\Service\MetricsPublisher;
@@ -19,10 +18,7 @@ if (!Loader::includeModule('vendor.monitoring')) {
 }
 
 $moduleId = 'vendor.monitoring';
-$moduleRoot = ModuleManager::getModuleRootPath($moduleId);
-if (is_string($moduleRoot) && $moduleRoot !== '') {
-    Loc::loadMessages($moduleRoot.'/admin/vendor_monitoring_settings.php');
-}
+Loc::loadMessages(__FILE__);
 
 if (!$USER->IsAdmin()) {
     $APPLICATION->AuthForm(Loc::getMessage('ACCESS_DENIED') ?: 'Доступ запрещён');
