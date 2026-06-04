@@ -5,6 +5,7 @@ use Bitrix\Main\Loader;
 Loader::registerAutoLoadClasses('vendor.monitoring', [
     'Vendor\\Monitoring\\Application\\Service\\ModuleSender' => 'lib/Application/Service/ModuleSender.php',
     'Vendor\\Monitoring\\Application\\Service\\MetricsPublisher' => 'lib/Application/Service/MetricsPublisher.php',
+    'Vendor\\Monitoring\\Application\\Admin\\AdminLang' => 'lib/Application/Admin/AdminLang.php',
     'Vendor\\Monitoring\\Application\\Collector\\EnvironmentCollector' => 'lib/Application/Collector/EnvironmentCollector.php',
     'Vendor\\Monitoring\\Application\\Collector\\DiskCollector' => 'lib/Application/Collector/DiskCollector.php',
     'Vendor\\Monitoring\\Application\\Collector\\BackupCollector' => 'lib/Application/Collector/BackupCollector.php',

@@ -3,6 +3,7 @@
 use Bitrix\Main\Config\Option;
 use Bitrix\Main\Loader;
 use Bitrix\Main\Localization\Loc;
+use Vendor\Monitoring\Application\Admin\AdminLang;
 use Vendor\Monitoring\Application\Collector\AgentsCollector;
 use Vendor\Monitoring\Application\Collector\BackupCollector;
 use Vendor\Monitoring\Application\Service\MetricsPublisher;
@@ -10,10 +11,10 @@ use Vendor\Monitoring\Application\Service\ModuleSender;
 
 require_once $_SERVER['DOCUMENT_ROOT'].'/bitrix/modules/main/include/prolog_admin_before.php';
 
-Loc::loadMessages(__FILE__);
+AdminLang::loadForSettingsPage();
 
 if (!$USER->IsAdmin()) {
-    $APPLICATION->AuthForm(Loc::getMessage('ACCESS_DENIED') ?: 'Access denied');
+    $APPLICATION->AuthForm(AdminLang::message('ACCESS_DENIED'));
 }
 
 Loader::includeModule('vendor.monitoring');
@@ -41,8 +42,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && check_bitrix_sessid()) {
         ];
         $result = (new ModuleSender())->sendHeartbeat($environment);
         $message = ($result['success'] ?? false)
-            ? Loc::getMessage('VENDOR_MONITORING_HEARTBEAT_OK', ['#STATUS#' => (string) ($result['status'] ?? '')])
-            : Loc::getMessage('VENDOR_MONITORING_HEARTBEAT_FAIL', ['#STATUS#' => (string) ($result['status'] ?? '')]);
+            ? AdminLang::message('VENDOR_MONITORING_HEARTBEAT_OK', ['#STATUS#' => (string) ($result['status'] ?? '')])
+            : AdminLang::message('VENDOR_MONITORING_HEARTBEAT_FAIL', ['#STATUS#' => (string) ($result['status'] ?? '')]);
         $messageType = ($result['success'] ?? false) ? 'ok' : 'error';
     } elseif (isset($_POST['test_backup_metrics'])) {
         $metrics = (new BackupCollector())->collect();
@@ -51,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && check_bitrix_sessid()) {
         $selected = $inspect['selected'];
         if ($result['success'] ?? false) {
             $message = $selected !== null
-                ? Loc::getMessage(
+                ? AdminLang::message(
                     'VENDOR_MONITORING_BACKUP_METRICS_OK',
                     [
                         '#STATUS#' => (string) ($result['status'] ?? ''),
@@ -60,10 +61,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && check_bitrix_sessid()) {
                         '#HOURS#' => (string) $selected['ageHours'],
                     ],
                 )
-                : Loc::getMessage('VENDOR_MONITORING_BACKUP_METRICS_OK_EMPTY', ['#STATUS#' => (string) ($result['status'] ?? '')]);
+                : AdminLang::message('VENDOR_MONITORING_BACKUP_METRICS_OK_EMPTY', ['#STATUS#' => (string) ($result['status'] ?? '')]);
             $messageType = 'ok';
         } else {
-            $message = Loc::getMessage('VENDOR_MONITORING_BACKUP_METRICS_FAIL', ['#STATUS#' => (string) ($result['status'] ?? '')]);
+            $message = AdminLang::message('VENDOR_MONITORING_BACKUP_METRICS_FAIL', ['#STATUS#' => (string) ($result['status'] ?? '')]);
             $messageType = 'error';
         }
     } elseif (isset($_POST['collect_all_metrics'])) {
@@ -71,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && check_bitrix_sessid()) {
         $heartbeatOk = $publish['heartbeat']['success'] ?? false;
         $metricsOk = $publish['metrics']['success'] ?? false;
         if ($heartbeatOk && $metricsOk) {
-            $message = Loc::getMessage(
+            $message = AdminLang::message(
                 'VENDOR_MONITORING_COLLECT_ALL_OK',
                 [
                     '#STATUS#' => (string) ($publish['metrics']['status'] ?? ''),
@@ -80,14 +81,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && check_bitrix_sessid()) {
             );
             $messageType = 'ok';
         } else {
-            $message = Loc::getMessage('VENDOR_MONITORING_COLLECT_ALL_FAIL');
+            $message = AdminLang::message('VENDOR_MONITORING_COLLECT_ALL_FAIL');
             $messageType = 'error';
         }
     } elseif (isset($_POST['test_agents_metrics'])) {
         $inspect = (new AgentsCollector())->inspect();
         $result = (new ModuleSender())->sendMetricsBatch($inspect['metrics']);
         if ($result['success'] ?? false) {
-            $message = Loc::getMessage(
+            $message = AdminLang::message(
                 'VENDOR_MONITORING_AGENTS_METRICS_OK',
                 [
                     '#STATUS#' => (string) ($result['status'] ?? ''),
@@ -97,11 +98,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && check_bitrix_sessid()) {
             );
             $messageType = 'ok';
         } else {
-            $message = Loc::getMessage('VENDOR_MONITORING_AGENTS_METRICS_FAIL', ['#STATUS#' => (string) ($result['status'] ?? '')]);
+            $message = AdminLang::message('VENDOR_MONITORING_AGENTS_METRICS_FAIL', ['#STATUS#' => (string) ($result['status'] ?? '')]);
             $messageType = 'error';
         }
     } else {
-        $message = Loc::getMessage('VENDOR_MONITORING_SAVED');
+        $message = AdminLang::message('VENDOR_MONITORING_SAVED');
     }
 }
 
@@ -115,24 +116,29 @@ $backupInspect = (new BackupCollector())->inspect();
 $agentsInspect = (new AgentsCollector())->inspect();
 
 require $_SERVER['DOCUMENT_ROOT'].'/bitrix/modules/main/include/prolog_admin_after.php';
+
+$APPLICATION->SetTitle(AdminLang::message('VENDOR_MONITORING_PAGE_TITLE'));
 ?>
-<form method="post">
+<div class="adm-workarea">
+<div class="adm-detail-content-wrap">
+<div class="adm-detail-content">
+<form method="post" class="adm-detail-content-item-block">
     <?= bitrix_sessid_post(); ?>
     <table class="adm-detail-content-table edit-table">
         <tr>
-            <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_MODE')); ?></td>
+            <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_MODE')); ?></td>
             <td><input type="text" name="mode" value="<?= htmlspecialcharsbx($values['mode']); ?>"></td>
         </tr>
         <tr>
-            <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_API_URL')); ?></td>
+            <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_API_URL')); ?></td>
             <td><input type="text" name="api_url" value="<?= htmlspecialcharsbx($values['api_url']); ?>" size="60"></td>
         </tr>
         <tr>
-            <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_SITE_ID')); ?></td>
+            <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_SITE_ID')); ?></td>
             <td><input type="text" name="site_id" value="<?= htmlspecialcharsbx($values['site_id']); ?>" size="60"></td>
         </tr>
         <tr>
-            <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_API_SECRET')); ?></td>
+            <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_API_SECRET')); ?></td>
             <td>
                 <input
                     type="password"
@@ -143,17 +149,19 @@ require $_SERVER['DOCUMENT_ROOT'].'/bitrix/modules/main/include/prolog_admin_aft
                     autocomplete="new-password"
                 >
                 <div class="adm-info-message-wrap" style="margin-top:8px;">
-                    <div class="adm-info-message"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_SECRET_HINT')); ?></div>
+                    <div class="adm-info-message"><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_SECRET_HINT')); ?></div>
                 </div>
             </td>
         </tr>
     </table>
-    <input type="submit" name="save" value="<?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_SAVE')); ?>">
-    <input type="submit" name="test_heartbeat" value="<?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_TEST_HEARTBEAT')); ?>">
-    <input type="submit" name="test_backup_metrics" value="<?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_TEST_BACKUP_METRICS')); ?>">
-    <input type="submit" name="test_agents_metrics" value="<?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_TEST_AGENTS_METRICS')); ?>">
-    <input type="submit" name="collect_all_metrics" value="<?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_COLLECT_ALL')); ?>" style="font-weight:600;">
+    <input type="submit" name="save" value="<?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_SAVE')); ?>">
+    <input type="submit" name="test_heartbeat" value="<?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_TEST_HEARTBEAT')); ?>">
+    <input type="submit" name="test_backup_metrics" value="<?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_TEST_BACKUP_METRICS')); ?>">
+    <input type="submit" name="test_agents_metrics" value="<?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_TEST_AGENTS_METRICS')); ?>">
+    <input type="submit" name="collect_all_metrics" value="<?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_COLLECT_ALL')); ?>" style="font-weight:600;">
 </form>
+</div>
+</div>
 
 <?php if ($message): ?>
     <div class="adm-info-message-wrap" style="margin-top:12px;">
@@ -164,51 +172,51 @@ require $_SERVER['DOCUMENT_ROOT'].'/bitrix/modules/main/include/prolog_admin_aft
 <?php endif; ?>
 
 <div class="adm-detail-content-wrap" style="margin-top:20px;">
-    <div class="adm-detail-title"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_BACKUP_DIAG_TITLE')); ?></div>
+    <div class="adm-detail-title"><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_BACKUP_DIAG_TITLE')); ?></div>
     <div class="adm-detail-content">
         <table class="adm-detail-content-table edit-table">
             <tr>
-                <td width="40%"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_BACKUP_DIR')); ?></td>
+                <td width="40%"><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_BACKUP_DIR')); ?></td>
                 <td><code><?= htmlspecialcharsbx($backupInspect['backupDir']); ?></code></td>
             </tr>
             <tr>
-                <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_BACKUP_COLLECTOR')); ?></td>
+                <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_BACKUP_COLLECTOR')); ?></td>
                 <td><code><?= htmlspecialcharsbx($backupInspect['collector']); ?></code></td>
             </tr>
             <tr>
-                <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_BACKUP_SCANNED')); ?></td>
+                <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_BACKUP_SCANNED')); ?></td>
                 <td><?= (int) $backupInspect['scannedFiles']; ?></td>
             </tr>
             <?php if (!$backupInspect['dirExists']): ?>
                 <tr>
                     <td colspan="2">
-                        <span style="color:#c00;"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_BACKUP_DIR_MISSING')); ?></span>
+                        <span style="color:#c00;"><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_BACKUP_DIR_MISSING')); ?></span>
                     </td>
                 </tr>
             <?php elseif ($backupInspect['selected'] === null): ?>
                 <tr>
                     <td colspan="2">
-                        <span style="color:#c00;"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_BACKUP_NOT_FOUND')); ?></span>
+                        <span style="color:#c00;"><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_BACKUP_NOT_FOUND')); ?></span>
                     </td>
                 </tr>
             <?php else: ?>
                 <?php $selected = $backupInspect['selected']; ?>
                 <tr class="adm-detail-content-table-accent">
-                    <td><strong><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_BACKUP_SELECTED')); ?></strong></td>
+                    <td><strong><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_BACKUP_SELECTED')); ?></strong></td>
                     <td>
                         <strong><?= htmlspecialcharsbx($selected['baseName']); ?></strong><br>
-                        <?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_BACKUP_DATE')); ?>:
+                        <?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_BACKUP_DATE')); ?>:
                         <?= htmlspecialcharsbx($selected['dateLocal']); ?><br>
-                        <?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_BACKUP_AGE')); ?>:
+                        <?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_BACKUP_AGE')); ?>:
                         <strong><?= htmlspecialcharsbx((string) $selected['ageHours']); ?></strong>
-                        <?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_BACKUP_AGE_UNIT')); ?>
+                        <?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_BACKUP_AGE_UNIT')); ?>
                     </td>
                 </tr>
             <?php endif; ?>
             <?php if (is_array($backupInspect['metric'] ?? null)): ?>
                 <?php $metric = $backupInspect['metric']; ?>
                 <tr>
-                    <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_BACKUP_METRIC_SENT')); ?></td>
+                    <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_BACKUP_METRIC_SENT')); ?></td>
                     <td>
                         <code>backup.age_hours = <?= htmlspecialcharsbx((string) ($metric['value'] ?? '—')); ?></code>
                         <?php if (is_array($metric['tags'] ?? null)): ?>
@@ -220,15 +228,15 @@ require $_SERVER['DOCUMENT_ROOT'].'/bitrix/modules/main/include/prolog_admin_aft
         </table>
 
         <?php if (($backupInspect['groups'] ?? []) !== []): ?>
-            <p style="margin:12px 0 8px;font-weight:600;"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_BACKUP_GROUPS')); ?></p>
+            <p style="margin:12px 0 8px;font-weight:600;"><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_BACKUP_GROUPS')); ?></p>
             <table class="adm-list-table" style="width:100%;">
                 <thead>
                     <tr class="adm-list-table-header">
-                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_BACKUP_GROUP_NAME')); ?></td>
-                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_BACKUP_GROUP_DATE')); ?></td>
-                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_BACKUP_GROUP_AGE')); ?></td>
-                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_BACKUP_GROUP_PARTS')); ?></td>
-                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_BACKUP_GROUP_FILES')); ?></td>
+                        <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_BACKUP_GROUP_NAME')); ?></td>
+                        <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_BACKUP_GROUP_DATE')); ?></td>
+                        <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_BACKUP_GROUP_AGE')); ?></td>
+                        <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_BACKUP_GROUP_PARTS')); ?></td>
+                        <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_BACKUP_GROUP_FILES')); ?></td>
                     </tr>
                 </thead>
                 <tbody>
@@ -250,43 +258,43 @@ require $_SERVER['DOCUMENT_ROOT'].'/bitrix/modules/main/include/prolog_admin_aft
                     <?php endforeach; ?>
                 </tbody>
             </table>
-            <p style="margin-top:8px;color:#666;font-size:12px;"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_BACKUP_GROUPS_HINT')); ?></p>
+            <p style="margin-top:8px;color:#666;font-size:12px;"><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_BACKUP_GROUPS_HINT')); ?></p>
         <?php endif; ?>
     </div>
 </div>
 
 <div class="adm-detail-content-wrap" style="margin-top:20px;">
-    <div class="adm-detail-title"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_DIAG_TITLE')); ?></div>
+    <div class="adm-detail-title"><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_AGENTS_DIAG_TITLE')); ?></div>
     <div class="adm-detail-content">
         <table class="adm-detail-content-table edit-table">
             <tr>
-                <td width="40%"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COLLECTOR')); ?></td>
+                <td width="40%"><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_AGENTS_COLLECTOR')); ?></td>
                 <td><code><?= htmlspecialcharsbx((string) $agentsInspect['collector']); ?></code></td>
             </tr>
             <tr>
-                <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_ACTIVE')); ?></td>
+                <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_AGENTS_ACTIVE')); ?></td>
                 <td><?= (int) $agentsInspect['activeCount']; ?></td>
             </tr>
             <tr>
-                <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_OVERDUE')); ?></td>
+                <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_AGENTS_OVERDUE')); ?></td>
                 <td><strong><?= (int) $agentsInspect['overdueCount']; ?></strong></td>
             </tr>
             <tr>
-                <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_MAX_LAG')); ?></td>
+                <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_AGENTS_MAX_LAG')); ?></td>
                 <td><?= htmlspecialcharsbx((string) round((int) $agentsInspect['maxLagSeconds'] / 3600, 1)); ?> ч</td>
             </tr>
         </table>
 
         <?php if (($agentsInspect['stuckAgents'] ?? []) !== []): ?>
-            <p style="margin:12px 0 8px;font-weight:600;"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_STUCK_ACTIVE')); ?></p>
+            <p style="margin:12px 0 8px;font-weight:600;"><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_AGENTS_STUCK_ACTIVE')); ?></p>
             <table class="adm-list-table" style="width:100%;">
                 <thead>
                     <tr class="adm-list-table-header">
                         <td>ID</td>
-                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COL_MODULE')); ?></td>
-                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COL_FUNCTION')); ?></td>
-                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COL_NEXT')); ?></td>
-                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COL_LAG')); ?></td>
+                        <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_AGENTS_COL_MODULE')); ?></td>
+                        <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_AGENTS_COL_FUNCTION')); ?></td>
+                        <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_AGENTS_COL_NEXT')); ?></td>
+                        <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_AGENTS_COL_LAG')); ?></td>
                     </tr>
                 </thead>
                 <tbody>
@@ -301,21 +309,21 @@ require $_SERVER['DOCUMENT_ROOT'].'/bitrix/modules/main/include/prolog_admin_aft
                     <?php endforeach; ?>
                 </tbody>
             </table>
-            <p style="margin-top:8px;color:#666;font-size:12px;"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_STUCK_ACTIVE_HINT')); ?></p>
+            <p style="margin-top:8px;color:#666;font-size:12px;"><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_AGENTS_STUCK_ACTIVE_HINT')); ?></p>
         <?php else: ?>
-            <p style="margin-top:12px;color:#2e7d32;"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_NONE_OVERDUE')); ?></p>
+            <p style="margin-top:12px;color:#2e7d32;"><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_AGENTS_NONE_OVERDUE')); ?></p>
         <?php endif; ?>
 
         <?php if (($agentsInspect['selfMonitoringOverdue'] ?? []) !== []): ?>
-            <p style="margin:16px 0 8px;font-weight:600;"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_SELF_MONITORING')); ?></p>
+            <p style="margin:16px 0 8px;font-weight:600;"><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_AGENTS_SELF_MONITORING')); ?></p>
             <table class="adm-list-table" style="width:100%;">
                 <thead>
                     <tr class="adm-list-table-header">
                         <td>ID</td>
-                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COL_MODULE')); ?></td>
-                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COL_FUNCTION')); ?></td>
-                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COL_NEXT')); ?></td>
-                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COL_LAG')); ?></td>
+                        <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_AGENTS_COL_MODULE')); ?></td>
+                        <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_AGENTS_COL_FUNCTION')); ?></td>
+                        <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_AGENTS_COL_NEXT')); ?></td>
+                        <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_AGENTS_COL_LAG')); ?></td>
                     </tr>
                 </thead>
                 <tbody>
@@ -330,19 +338,19 @@ require $_SERVER['DOCUMENT_ROOT'].'/bitrix/modules/main/include/prolog_admin_aft
                     <?php endforeach; ?>
                 </tbody>
             </table>
-            <p style="margin-top:8px;color:#666;font-size:12px;"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_SELF_MONITORING_HINT')); ?></p>
+            <p style="margin-top:8px;color:#666;font-size:12px;"><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_AGENTS_SELF_MONITORING_HINT')); ?></p>
         <?php endif; ?>
 
         <?php if (($agentsInspect['inactiveOverdueSample'] ?? []) !== []): ?>
-            <p style="margin:16px 0 8px;font-weight:600;"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_INACTIVE_OVERDUE')); ?></p>
+            <p style="margin:16px 0 8px;font-weight:600;"><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_AGENTS_INACTIVE_OVERDUE')); ?></p>
             <table class="adm-list-table" style="width:100%;">
                 <thead>
                     <tr class="adm-list-table-header">
                         <td>ID</td>
-                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COL_MODULE')); ?></td>
-                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COL_FUNCTION')); ?></td>
-                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COL_NEXT')); ?></td>
-                        <td><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_COL_LAG')); ?></td>
+                        <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_AGENTS_COL_MODULE')); ?></td>
+                        <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_AGENTS_COL_FUNCTION')); ?></td>
+                        <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_AGENTS_COL_NEXT')); ?></td>
+                        <td><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_AGENTS_COL_LAG')); ?></td>
                     </tr>
                 </thead>
                 <tbody>
@@ -357,9 +365,10 @@ require $_SERVER['DOCUMENT_ROOT'].'/bitrix/modules/main/include/prolog_admin_aft
                     <?php endforeach; ?>
                 </tbody>
             </table>
-            <p style="margin-top:8px;color:#666;font-size:12px;"><?= htmlspecialcharsbx(Loc::getMessage('VENDOR_MONITORING_AGENTS_INACTIVE_OVERDUE_HINT')); ?></p>
+            <p style="margin-top:8px;color:#666;font-size:12px;"><?= htmlspecialcharsbx(AdminLang::message('VENDOR_MONITORING_AGENTS_INACTIVE_OVERDUE_HINT')); ?></p>
         <?php endif; ?>
     </div>
+</div>
 </div>
 <?php
 require $_SERVER['DOCUMENT_ROOT'].'/bitrix/modules/main/include/epilog_admin.php';

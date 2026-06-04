@@ -1,6 +1,6 @@
 <?php
 
-$MESS['ACCESS_DENIED'] = 'Доступ запрещён';
+$MESS['ACCESS_DENIED'] = 'Access denied';
 $MESS['VENDOR_MONITORING_PAGE_TITLE'] = 'Monitoring Service';
 $MESS['VENDOR_MONITORING_MODE'] = 'Режим';
 $MESS['VENDOR_MONITORING_API_URL'] = 'URL API';

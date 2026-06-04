@@ -97,13 +97,12 @@ class vendor_monitoring extends CModule
                 continue;
             }
 
-            $sourceFile = $adminSourceDir.'/'.$item;
-            if (!is_file($sourceFile)) {
+            $sourceFile = realpath($adminSourceDir.'/'.$item);
+            if ($sourceFile === false || !is_file($sourceFile)) {
                 continue;
             }
 
-            $relativeSource = str_replace('\\', '/', str_replace($_SERVER['DOCUMENT_ROOT'], '', $sourceFile));
-            $stub = '<?php require $_SERVER[\'DOCUMENT_ROOT\'].'."'".$relativeSource."';";
+            $stub = '<?php require '.var_export($sourceFile, true).';';
 
             file_put_contents($adminTargetDir.'/'.$item, $stub);
         }
