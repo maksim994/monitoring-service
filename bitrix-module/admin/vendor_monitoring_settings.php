@@ -11,13 +11,18 @@ use Vendor\Monitoring\Application\Service\ModuleSender;
 
 require_once $_SERVER['DOCUMENT_ROOT'].'/bitrix/modules/main/include/prolog_admin_before.php';
 
+if (!Loader::includeModule('vendor.monitoring')) {
+    $APPLICATION->AuthForm('Модуль vendor.monitoring не установлен');
+    require $_SERVER['DOCUMENT_ROOT'].'/bitrix/modules/main/include/epilog_admin.php';
+
+    return;
+}
+
 AdminLang::loadForSettingsPage();
 
 if (!$USER->IsAdmin()) {
     $APPLICATION->AuthForm(AdminLang::message('ACCESS_DENIED'));
 }
-
-Loader::includeModule('vendor.monitoring');
 
 $moduleId = 'vendor.monitoring';
 $message = null;
