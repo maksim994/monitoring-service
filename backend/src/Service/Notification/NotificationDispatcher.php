@@ -8,6 +8,7 @@ use App\Entity\Incident;
 use App\Entity\NotificationChannel;
 use App\Entity\NotificationDelivery;
 use App\Repository\NotificationChannelRepository;
+use App\Service\Check\CheckMonitoringGate;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -18,6 +19,7 @@ final class NotificationDispatcher
 {
     public function __construct(
         private readonly NotificationChannelRepository $channelRepository,
+        private readonly CheckMonitoringGate $checkMonitoringGate,
         private readonly MailerInterface $mailer,
         private readonly MailerFromResolver $mailerFromResolver,
         private readonly WebhookUrlValidator $webhookUrlValidator,
@@ -34,6 +36,10 @@ final class NotificationDispatcher
 
     public function dispatchIncidentOpened(Incident $incident): void
     {
+        if (!$this->checkMonitoringGate->notificationsEnabled($incident->getSite(), $incident->getCheckType())) {
+            return;
+        }
+
         $channels = $this->channelRepository->findEnabledByOrganization($incident->getOrganization());
 
         foreach ($channels as $channel) {
@@ -50,6 +56,10 @@ final class NotificationDispatcher
         }
 
         if (!$incident->isEligibleForCriticalReminder()) {
+            return false;
+        }
+
+        if (!$this->checkMonitoringGate->notificationsEnabled($incident->getSite(), $incident->getCheckType())) {
             return false;
         }
 

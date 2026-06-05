@@ -45,7 +45,7 @@ final class ProbeRunner
 
     private function runHttpCheck(Check $check, ?string $probeId): CheckResult
     {
-        $url = $check->getTargetUrl() ?? $check->getSite()->getSiteUrl();
+        $url = $this->normalizeUrl($check->getTargetUrl() ?? $check->getSite()->getSiteUrl());
         $minStatus = (int) ($check->getSettingsJson()['expectedStatusMin'] ?? 200);
         $maxStatus = (int) ($check->getSettingsJson()['expectedStatusMax'] ?? 399);
 
@@ -98,7 +98,7 @@ final class ProbeRunner
 
     private function runSslCheck(Check $check, ?string $probeId): CheckResult
     {
-        $url = $check->getTargetUrl() ?? $check->getSite()->getSiteUrl();
+        $url = $this->normalizeUrl($check->getTargetUrl() ?? $check->getSite()->getSiteUrl());
         $parts = parse_url($url);
         $host = $parts['host'] ?? null;
         $port = $parts['port'] ?? 443;
@@ -118,6 +118,7 @@ final class ProbeRunner
             $status = str_contains(strtolower($sslRead['error']), 'handshake') ? CheckResult::STATUS_CRITICAL : CheckResult::STATUS_UNKNOWN;
 
             return new CheckResult($check, $status, [
+                'url' => $url,
                 'host' => $host,
                 'error' => $sslRead['error'],
                 'errno' => $sslRead['errno'] ?? 0,
@@ -127,6 +128,7 @@ final class ProbeRunner
         $validTo = $sslRead['validTo'];
         if (!is_int($validTo)) {
             return new CheckResult($check, CheckResult::STATUS_UNKNOWN, [
+                'url' => $url,
                 'host' => $host,
                 'error' => 'Certificate expiry unavailable',
             ], $probeId);
@@ -134,6 +136,7 @@ final class ProbeRunner
 
         $daysLeft = (int) floor(($validTo - time()) / 86400);
         $valueJson = [
+            'url' => $url,
             'host' => $host,
             'daysLeft' => $daysLeft,
             'validTo' => gmdate('c', $validTo),
@@ -218,6 +221,20 @@ final class ProbeRunner
             'errno' => $lastErrno,
             'verifySkipped' => false,
         ];
+    }
+
+    private function normalizeUrl(string $url): string
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return $url;
+        }
+
+        if (preg_match('#^[a-z][a-z0-9+.-]*://#i', $url) === 1) {
+            return $url;
+        }
+
+        return 'https://'.$url;
     }
 
     private function runDomainCheck(Check $check, ?string $probeId): CheckResult

@@ -26,6 +26,17 @@ final class CheckMonitoringGate
         return $check->isEnabled();
     }
 
+    public function notificationsEnabled(Site $site, string $checkType): bool
+    {
+        $check = $this->checkRepository->findBySiteAndType($site, $checkType);
+
+        if ($check === null) {
+            return true;
+        }
+
+        return $check->areNotificationsEnabled();
+    }
+
     public function findCheck(Site $site, string $checkType): ?Check
     {
         return $this->checkRepository->findBySiteAndType($site, $checkType);

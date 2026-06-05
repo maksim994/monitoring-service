@@ -45,6 +45,7 @@ type SiteCheck = {
   id: string;
   type: string;
   enabled: boolean;
+  notificationsEnabled: boolean;
   intervalSeconds: number;
   settings: Record<string, unknown>;
   snapshot?: CheckSnapshot | null;
@@ -59,7 +60,14 @@ type Props = {
   onToggleEnabled: (enabled: boolean) => void;
 };
 
-export function SiteCheckCard({ check, canManage, saving, toggling, onSave, onToggleEnabled }: Props) {
+export function SiteCheckCard({
+  check,
+  canManage,
+  saving,
+  toggling,
+  onSave,
+  onToggleEnabled,
+}: Props) {
   const [expanded, setExpanded] = useState(false);
   const meta = getCheckMeta(check.type);
   const iconConfig = CHECK_ICONS[check.type] ?? { icon: Settings2, tone: 'bg-slate-100 text-slate-600 ring-slate-200' };

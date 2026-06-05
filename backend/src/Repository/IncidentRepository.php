@@ -48,7 +48,7 @@ class IncidentRepository extends ServiceEntityRepository
     }
 
     /** @return list<Incident> */
-    public function findByOrganization(Organization $organization, ?string $status = null): array
+    public function findByOrganization(Organization $organization, ?string $status = null, ?Site $site = null): array
     {
         $qb = $this->createQueryBuilder('i')
             ->andWhere('i.organization = :organization')
@@ -58,6 +58,11 @@ class IncidentRepository extends ServiceEntityRepository
         if ($status !== null && $status !== '') {
             $qb->andWhere('i.status = :status')
                 ->setParameter('status', $status);
+        }
+
+        if ($site instanceof Site) {
+            $qb->andWhere('i.site = :site')
+                ->setParameter('site', $site);
         }
 
         return $qb->getQuery()->getResult();

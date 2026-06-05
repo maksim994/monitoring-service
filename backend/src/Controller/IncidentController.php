@@ -6,9 +6,11 @@ namespace App\Controller;
 
 use App\Entity\Incident;
 use App\Entity\IncidentEvent;
+use App\Entity\Site;
 use App\Entity\User;
 use App\Repository\IncidentRepository;
 use App\Repository\OrganizationUserRepository;
+use App\Repository\SiteRepository;
 use App\Service\Alert\SiteStatusResolver;
 use App\Service\Audit\AuditLogService;
 use App\Service\Security\AccessDeniedException;
@@ -26,6 +28,7 @@ final class IncidentController extends AbstractController
 {
     public function __construct(
         private readonly IncidentRepository $incidentRepository,
+        private readonly SiteRepository $siteRepository,
         private readonly OrganizationUserRepository $organizationUserRepository,
         private readonly SiteStatusResolver $siteStatusResolver,
         private readonly OrganizationAccessService $organizationAccessService,
@@ -44,7 +47,16 @@ final class IncidentController extends AbstractController
 
         $status = $request->query->get('status');
         $statusFilter = is_string($status) && $status !== '' ? $status : null;
-        $incidents = $this->incidentRepository->findByOrganization($organization, $statusFilter);
+        $siteFilter = null;
+        $siteId = $request->query->get('siteId');
+        if (is_string($siteId) && $siteId !== '') {
+            $siteFilter = $this->siteRepository->find(Uuid::fromString($siteId));
+            if (!$siteFilter instanceof Site || !$siteFilter->getOrganization()->getId()->equals($organization->getId())) {
+                return $this->error('site_not_found', 'Site was not found.', Response::HTTP_NOT_FOUND);
+            }
+        }
+
+        $incidents = $this->incidentRepository->findByOrganization($organization, $statusFilter, $siteFilter);
 
         return $this->json([
             'items' => array_map(fn (Incident $incident) => $this->serializeIncident($incident), $incidents),

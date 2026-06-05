@@ -106,6 +106,19 @@ class Check
         return $this->enabled;
     }
 
+    public function areNotificationsEnabled(): bool
+    {
+        return ($this->settingsJson['notificationsEnabled'] ?? true) !== false;
+    }
+
+    public function setNotificationsEnabled(bool $enabled): self
+    {
+        $this->settingsJson['notificationsEnabled'] = $enabled;
+        $this->updatedAt = new \DateTimeImmutable();
+
+        return $this;
+    }
+
     public function setEnabled(bool $enabled): self
     {
         $this->enabled = $enabled;

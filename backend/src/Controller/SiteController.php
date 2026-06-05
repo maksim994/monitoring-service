@@ -377,6 +377,7 @@ final class SiteController extends AbstractController
             'id' => (string) $check->getId(),
             'type' => $check->getType(),
             'enabled' => $check->isEnabled(),
+            'notificationsEnabled' => $check->areNotificationsEnabled(),
             'intervalSeconds' => $check->getIntervalSeconds(),
             'settings' => $check->getSettingsJson(),
             'snapshot' => $snapshot,

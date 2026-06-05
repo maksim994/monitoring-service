@@ -163,6 +163,7 @@ export const api = {
           id: string;
           type: string;
           enabled: boolean;
+          notificationsEnabled: boolean;
           intervalSeconds: number;
           settings: Record<string, unknown>;
           snapshot?: {
@@ -185,6 +186,7 @@ export const api = {
           id: string;
           type: string;
           enabled: boolean;
+          notificationsEnabled: boolean;
           intervalSeconds: number;
           settings: Record<string, unknown>;
           snapshot?: {
@@ -199,12 +201,13 @@ export const api = {
     token: string,
     siteId: string,
     checkId: string,
-    payload: { settings?: Record<string, number>; enabled?: boolean },
+    payload: { settings?: Record<string, number>; enabled?: boolean; notificationsEnabled?: boolean },
   ) =>
     request<{
       id: string;
       type: string;
       enabled: boolean;
+      notificationsEnabled: boolean;
       intervalSeconds: number;
       settings: Record<string, unknown>;
       snapshot?: {
@@ -239,8 +242,16 @@ export const api = {
     request<MaintenanceWindow>(`/api/v1/sites/${siteId}/maintenance-windows`, { method: 'POST', body: JSON.stringify(payload) }, token),
   cancelMaintenanceWindow: (token: string, siteId: string, windowId: string) =>
     request<MaintenanceWindow>(`/api/v1/sites/${siteId}/maintenance-windows/${windowId}/cancel`, { method: 'POST' }, token),
-  listIncidents: (token: string, status?: string) => {
-    const query = status ? `?status=${encodeURIComponent(status)}` : '';
+  listIncidents: (token: string, status?: string, siteId?: string) => {
+    const params = new URLSearchParams();
+    if (status) {
+      params.set('status', status);
+    }
+    if (siteId) {
+      params.set('siteId', siteId);
+    }
+    const query = params.size > 0 ? `?${params.toString()}` : '';
+
     return request<{ items: IncidentSummary[] }>(`/api/v1/incidents${query}`, {}, token);
   },
   acknowledgeIncident: (token: string, incidentId: string) =>

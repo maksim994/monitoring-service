@@ -69,9 +69,10 @@ final class CheckController extends AbstractController
 
         $hasSettings = array_key_exists('settings', $payload) && is_array($payload['settings']);
         $hasEnabled = array_key_exists('enabled', $payload);
+        $hasNotificationsEnabled = array_key_exists('notificationsEnabled', $payload);
 
-        if (!$hasSettings && !$hasEnabled) {
-            return $this->error('invalid_payload', 'Укажите settings и/или enabled.', Response::HTTP_BAD_REQUEST);
+        if (!$hasSettings && !$hasEnabled && !$hasNotificationsEnabled) {
+            return $this->error('invalid_payload', 'Укажите settings, enabled и/или notificationsEnabled.', Response::HTTP_BAD_REQUEST);
         }
 
         if ($hasEnabled) {
@@ -86,6 +87,15 @@ final class CheckController extends AbstractController
                     $this->alertEngine->resolveIncidentsForCheckType($site, $check->getType());
                 }
             }
+        }
+
+        if ($hasNotificationsEnabled) {
+            $notificationsEnabled = filter_var($payload['notificationsEnabled'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if (!is_bool($notificationsEnabled)) {
+                return $this->error('invalid_payload', 'Поле notificationsEnabled должно быть true или false.', Response::HTTP_BAD_REQUEST);
+            }
+
+            $check->setNotificationsEnabled($notificationsEnabled);
         }
 
         if ($hasSettings) {
@@ -118,6 +128,7 @@ final class CheckController extends AbstractController
             'id' => (string) $check->getId(),
             'type' => $check->getType(),
             'enabled' => $check->isEnabled(),
+            'notificationsEnabled' => $check->areNotificationsEnabled(),
             'intervalSeconds' => $check->getIntervalSeconds(),
             'settings' => $check->getSettingsJson(),
             'snapshot' => $this->checkSnapshotService->resolveForApi($check),
